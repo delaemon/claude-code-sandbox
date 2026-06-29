@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """F1 Race Map – FastAPI backend.
 
 Data source: FastF1 (accesses F1's official Live Timing API).
