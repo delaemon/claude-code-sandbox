@@ -54,8 +54,14 @@ const lapsTbody  = el('laps-tbody');
 async function api(path) {
   const r = await fetch('/api' + path);
   if (!r.ok) {
-    const txt = await r.text().catch(() => r.statusText);
-    throw new Error(`${r.status} ${txt}`);
+    let msg = r.statusText;
+    try {
+      const body = await r.json();
+      msg = body.detail || JSON.stringify(body);
+    } catch (_) {
+      msg = await r.text().catch(() => r.statusText);
+    }
+    throw new Error(msg);
   }
   return r.json();
 }

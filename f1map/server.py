@@ -121,7 +121,13 @@ def _load_positions(year: int, rnd: int, stype: str) -> dict:
         return json.loads(cf.read_text())
 
     session = fastf1.get_session(year, rnd, stype)
-    session.load(telemetry=True, laps=True, messages=False)
+    try:
+        session.load()
+    except Exception as load_err:
+        raise ValueError(
+            f"{year}年 R{rnd} {stype} のデータ読み込みに失敗しました: {load_err}"
+            f" 2024年・2023年のデータをお試しください。"
+        ) from load_err
 
     t_ref = _t_ref(session)
 
@@ -130,7 +136,14 @@ def _load_positions(year: int, rnd: int, stype: str) -> dict:
     all_x: list = []
     all_y: list = []
 
-    for drv, raw in session.pos_data.items():
+    pos_data = getattr(session, "pos_data", None)
+    if not pos_data:
+        raise ValueError(
+            f"{year}年 R{rnd} {stype} の位置データがF1アーカイブにありません。"
+            f" 2024年・2023年のデータをお試しください。"
+        )
+
+    for drv, raw in pos_data.items():
         if raw is None or raw.empty:
             continue
         raw = raw[["Date", "X", "Y"]].dropna().copy()
@@ -146,7 +159,10 @@ def _load_positions(year: int, rnd: int, stype: str) -> dict:
         drv_data[drv] = {"t": t_v, "x": x_v, "y": y_v}
 
     if not drv_data:
-        raise ValueError("No position data found for this session.")
+        raise ValueError(
+            f"{year}年 R{rnd} {stype} の位置データが空です。"
+            f" 2024年・2023年のデータをお試しください。"
+        )
 
     # Global time axis at SAMPLE_HZ
     g_min = min(d["t"].min() for d in drv_data.values())
@@ -230,13 +246,14 @@ def _load_telemetry(year: int, rnd: int, stype: str, drv: str) -> dict:
         return json.loads(cf.read_text())
 
     session = fastf1.get_session(year, rnd, stype)
-    session.load(telemetry=True, laps=False, messages=False)
+    session.load()
 
-    if drv not in session.car_data or session.car_data[drv].empty:
+    car_data = getattr(session, "car_data", None)
+    if not car_data or drv not in car_data or car_data[drv].empty:
         return {}
 
     t_ref = _t_ref(session)
-    car = session.car_data[drv].copy()
+    car = car_data[drv].copy()
     car["t"] = (car["Date"] - t_ref).dt.total_seconds()
     car = car[car["t"] >= 0].sort_values("t").drop_duplicates("t")
 
@@ -282,6 +299,8 @@ async def get_positions(year: int, rnd: int, stype: str):
     try:
         data = await run_in_threadpool(_load_positions, year, rnd, stype)
         return JSONResponse(data)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
     except Exception as e:
         raise HTTPException(500, str(e))
 
