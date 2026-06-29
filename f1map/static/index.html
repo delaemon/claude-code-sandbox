@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Race Map</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header id="header">
+    <span class="brand">F1 <span class="red">RACE MAP</span></span>
+    <div id="session-selector">
+      <select id="sel-year"></select>
+      <select id="sel-round" disabled><option>—</option></select>
+      <select id="sel-type" disabled>
+        <option value="R">Race</option>
+        <option value="Q">Qualifying</option>
+        <option value="SQ">Sprint Qualifying</option>
+        <option value="S">Sprint</option>
+        <option value="FP1">FP1</option>
+        <option value="FP2">FP2</option>
+        <option value="FP3">FP3</option>
+      </select>
+      <button id="btn-load" disabled>Load</button>
+    </div>
+  </header>
+
+  <!-- ── Main ───────────────────────────────────────────────── -->
+  <main id="main">
+
+    <!-- Left sidebar: driver list -->
+    <aside id="sidebar-left">
+      <div class="sidebar-title">DRIVERS <span class="hint">クリック: テレメトリ / ダブルクリック: 表示切替</span></div>
+      <div id="driver-list"></div>
+    </aside>
+
+    <!-- Center: canvas + timeline -->
+    <section id="center">
+      <div id="canvas-wrap">
+        <canvas id="track-canvas"></canvas>
+        <div id="overlay-msg">
+          <div id="overlay-inner">
+            <div class="f1-logo">F1</div>
+            <p>年・グランプリ・セッションを選択して「Load」をクリック</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div id="timeline">
+        <button id="btn-play" disabled title="Play/Pause">▶</button>
+        <button id="btn-restart" disabled title="最初から">⏮</button>
+        <span id="t-current">0:00:00</span>
+        <input id="scrubber" type="range" min="0" max="100" value="0" step="0.25" disabled>
+        <span id="t-total">0:00:00</span>
+        <label class="speed-label">速度
+          <select id="sel-speed" disabled>
+            <option value="1">1×</option>
+            <option value="5">5×</option>
+            <option value="10" selected>10×</option>
+            <option value="30">30×</option>
+            <option value="60">60×</option>
+            <option value="120">120×</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <!-- Right sidebar: telemetry + laps -->
+    <aside id="sidebar-right">
+
+      <!-- Telemetry -->
+      <div id="telemetry-panel">
+        <div class="sidebar-title">TELEMETRY <span id="tel-driver-badge"></span></div>
+        <div class="tel-grid">
+          <div class="tel-item">
+            <span class="tel-label">Speed</span>
+            <span class="tel-value" id="tel-speed">—</span>
+            <span class="tel-unit">km/h</span>
+          </div>
+          <div class="tel-item">
+            <span class="tel-label">Gear</span>
+            <span class="tel-value gear" id="tel-gear">—</span>
+          </div>
+          <div class="tel-item">
+            <span class="tel-label">DRS</span>
+            <span class="tel-value" id="tel-drs">—</span>
+          </div>
+          <div class="tel-item">
+            <span class="tel-label">RPM</span>
+            <span class="tel-value" id="tel-rpm">—</span>
+          </div>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Throttle</span>
+          <div class="bar-track"><div class="bar throttle" id="bar-throttle"></div></div>
+          <span class="bar-val" id="val-throttle">—</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Brake</span>
+          <div class="bar-track"><div class="bar brake" id="bar-brake"></div></div>
+          <span class="bar-val" id="val-brake">—</span>
+        </div>
+      </div>
+
+      <!-- Lap times -->
+      <div id="laps-panel">
+        <div class="sidebar-title">
+          LAP TIMES
+          <span id="laps-filter-badge"></span>
+        </div>
+        <div id="laps-scroll">
+          <table id="laps-table">
+            <thead>
+              <tr>
+                <th>Lap</th>
+                <th>Driver</th>
+                <th>Time</th>
+                <th>Pos</th>
+                <th>Cmp</th>
+              </tr>
+            </thead>
+            <tbody id="laps-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+</div>
+<script src="app.js"></script>
+</body>
+</html>

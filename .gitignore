@@ -7,3 +7,5 @@ workspace/
 dist/
 build/
 .env
+f1map/cache/
+f1map/data_cache/
