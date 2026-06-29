@@ -35,6 +35,7 @@ app = FastAPI(title="F1 Race Map")
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 SAMPLE_HZ = 4  # position / telemetry output rate
+CACHE_VERSION = 2  # bump to invalidate all cached data_cache files
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -81,13 +82,27 @@ def _load_schedule(year: int) -> list:
 def _load_info(year: int, rnd: int, stype: str) -> dict:
     cf = DATA_DIR / f"{_key(year, rnd, stype)}_info.json"
     if cf.exists():
-        return json.loads(cf.read_text())
+        cached = json.loads(cf.read_text())
+        if cached.get("_v") == CACHE_VERSION:
+            return cached
+        cf.unlink()  # stale version, reload
 
     session = fastf1.get_session(year, rnd, stype)
     session.load(telemetry=False, laps=True, messages=False)
 
+    # Determine actual participants from laps data (filters out non-starters)
+    participated: set = set()
+    try:
+        if not session.laps.empty:
+            participated = set(session.laps["DriverNumber"].astype(str).unique())
+    except Exception:
+        pass
+
+    # Candidate driver numbers: prefer laps-confirmed over session.drivers fallback
+    candidates = participated if participated else set(session.drivers)
+
     drivers: dict = {}
-    for num in session.drivers:
+    for num in candidates:
         try:
             info = session.get_driver(num)
             color = (info.get("TeamColor") or "888888").strip("#")
@@ -105,6 +120,7 @@ def _load_info(year: int, rnd: int, stype: str) -> dict:
             }
 
     result = {
+        "_v": CACHE_VERSION,
         "year": year,
         "event": str(session.event["EventName"]),
         "circuit": str(session.event.get("Location", "")),
@@ -118,7 +134,10 @@ def _load_info(year: int, rnd: int, stype: str) -> dict:
 def _load_positions(year: int, rnd: int, stype: str) -> dict:
     cf = DATA_DIR / f"{_key(year, rnd, stype)}_positions.json"
     if cf.exists():
-        return json.loads(cf.read_text())
+        cached = json.loads(cf.read_text())
+        if cached.get("_v") == CACHE_VERSION:
+            return cached
+        cf.unlink()
 
     session = fastf1.get_session(year, rnd, stype)
     try:
@@ -184,6 +203,7 @@ def _load_positions(year: int, rnd: int, stype: str) -> dict:
     idx = rng.choice(len(all_x_arr), n_pts, replace=False)
 
     result = {
+        "_v": CACHE_VERSION,
         "sample_hz": SAMPLE_HZ,
         "t_start": round(float(g_min), 3),
         "t_end": round(float(g_max), 3),
@@ -201,7 +221,10 @@ def _load_positions(year: int, rnd: int, stype: str) -> dict:
 def _load_laps(year: int, rnd: int, stype: str) -> dict:
     cf = DATA_DIR / f"{_key(year, rnd, stype)}_laps.json"
     if cf.exists():
-        return json.loads(cf.read_text())
+        cached = json.loads(cf.read_text())
+        if cached.get("_v") == CACHE_VERSION:
+            return cached
+        cf.unlink()
 
     session = fastf1.get_session(year, rnd, stype)
     session.load(telemetry=False, laps=True, messages=False)
@@ -235,7 +258,7 @@ def _load_laps(year: int, rnd: int, stype: str) -> dict:
             "tyre_life": int(row["TyreLife"]) if "TyreLife" in row and not pd.isna(row.get("TyreLife")) else None,
         })
 
-    result = {"laps": records}
+    result = {"_v": CACHE_VERSION, "laps": records}
     cf.write_text(json.dumps(result))
     return result
 
@@ -243,7 +266,10 @@ def _load_laps(year: int, rnd: int, stype: str) -> dict:
 def _load_telemetry(year: int, rnd: int, stype: str, drv: str) -> dict:
     cf = DATA_DIR / f"{_key(year, rnd, stype)}_tel_{drv}.json"
     if cf.exists():
-        return json.loads(cf.read_text())
+        cached = json.loads(cf.read_text())
+        if cached.get("_v") == CACHE_VERSION:
+            return cached
+        cf.unlink()
 
     session = fastf1.get_session(year, rnd, stype)
     session.load()
@@ -264,7 +290,7 @@ def _load_telemetry(year: int, rnd: int, stype: str, drv: str) -> dict:
         "Speed": "speed", "Throttle": "throttle", "Brake": "brake",
         "DRS": "drs", "nGear": "gear", "RPM": "rpm",
     }
-    result: dict = {"t_start": round(float(t_v.min()), 3)}
+    result: dict = {"_v": CACHE_VERSION, "t_start": round(float(t_v.min()), 3)}
     for src, dst in field_map.items():
         if src in car.columns:
             v = car[src].values.astype(float)
