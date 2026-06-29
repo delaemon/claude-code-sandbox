@@ -154,6 +154,7 @@ async function onLoad() {
     computeBounds();
     drawTrackLayer();
     buildLapsTable(null);
+    buildMobileLapsTable(null);
 
     // Timeline controls
     scrubber.max = S.totalTime;
@@ -408,6 +409,7 @@ function buildDriverList() {
     item.addEventListener('dblclick', () => onDriverDblClick(num));
     driverList.appendChild(item);
   }
+  buildMobileDriverList();
 }
 
 function onDriverClick(num) {
@@ -483,6 +485,9 @@ function renderTelemetry(sessionTime) {
   el('bar-brake').style.width    = brPct + '%';
   el('val-throttle').textContent = throttle != null ? Math.round(throttle) + '%' : '—';
   el('val-brake').textContent    = brake    != null ? (brake > 0 ? 'ON' : 'OFF') : '—';
+
+  // Mirror to mobile panel
+  renderMobileTelemetry(speed, gear, throttle, brake, drs, rpm);
 }
 
 function clearTelemetry() {
@@ -568,6 +573,111 @@ function fmtLapTime(secs) {
   return `${m}:${String(s).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;
 }
 
+// ── Mobile support ────────────────────────────────────────────────────────────
+
+const isMobile = () => window.innerWidth <= 768;
+
+// Active tab on mobile
+let mobileTab = 'drivers';
+
+function initMobile() {
+  // Tab switching
+  el('mobile-tabs').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => switchMobileTab(btn.dataset.tab));
+  });
+}
+
+function switchMobileTab(tab) {
+  mobileTab = tab;
+  el('mobile-tabs').querySelectorAll('button').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  el('mob-tab-drivers').style.display   = tab === 'drivers'   ? '' : 'none';
+  el('mob-tab-telemetry').style.display = tab === 'telemetry' ? '' : 'none';
+  el('mob-tab-laps').style.display      = tab === 'laps'      ? '' : 'none';
+}
+
+function buildMobileDriverList() {
+  const wrap = el('mobile-driver-list');
+  wrap.innerHTML = '';
+  const drivers = S.info?.drivers ?? {};
+  for (const [num, d] of Object.entries(drivers)) {
+    const chip = document.createElement('div');
+    chip.className = 'mob-drv';
+    chip.dataset.num = num;
+    chip.innerHTML = `<div class="mob-dot" style="background:${d.color}"></div>
+                      <span class="mob-abr">${d.abbreviation}</span>`;
+    chip.addEventListener('click', () => {
+      onDriverClick(num);
+      syncMobileDriverChips();
+      // Switch to telemetry tab after selecting
+      if (S.selectedDriver === num) switchMobileTab('telemetry');
+    });
+    chip.addEventListener('dblclick', () => {
+      onDriverDblClick(num);
+      syncMobileDriverChips();
+    });
+    wrap.appendChild(chip);
+  }
+}
+
+function syncMobileDriverChips() {
+  el('mobile-driver-list').querySelectorAll('.mob-drv').forEach(chip => {
+    const num = chip.dataset.num;
+    chip.classList.toggle('selected', num === S.selectedDriver);
+    chip.classList.toggle('hidden', S.hiddenDrivers.has(num));
+  });
+}
+
+function buildMobileLapsTable(filterDriver) {
+  const laps = S.lapsData?.laps ?? [];
+  const rows = filterDriver ? laps.filter(l => l.driver === filterDriver) : laps;
+  const drivers = S.info?.drivers ?? {};
+  const tbody = el('mob-laps-tbody');
+  tbody.innerHTML = '';
+  for (const lap of rows) {
+    const drv = drivers[lap.driver] ?? {};
+    const tr = document.createElement('tr');
+    tr.dataset.tStart = lap.t_start ?? '';
+    tr.dataset.tEnd   = (lap.t_start ?? 0) + (lap.time ?? 0);
+    tr.innerHTML = `
+      <td style="padding:5px 4px;border-bottom:1px solid #222;font-family:var(--mono)">${lap.lap}</td>
+      <td style="padding:5px 4px;border-bottom:1px solid #222;color:${drv.color ?? '#fff'};font-weight:700;font-family:var(--mono)">${drv.abbreviation ?? lap.driver}</td>
+      <td style="padding:5px 4px;border-bottom:1px solid #222;font-family:var(--mono)">${lap.time ? fmtLapTime(lap.time) : '—'}</td>
+      <td style="padding:5px 4px;border-bottom:1px solid #222;font-family:var(--mono)">${lap.position ?? '—'}</td>
+    `;
+    tr.addEventListener('click', () => {
+      if (lap.t_start != null) {
+        const relT = lap.t_start - S.posData.t_start;
+        S.currentTime = Math.max(0, relT);
+        renderFrame(S.currentTime);
+      }
+    });
+    tbody.appendChild(tr);
+  }
+}
+
+// Mirror telemetry values to mobile panel as well
+function renderMobileTelemetry(speed, gear, throttle, brake, drs, rpm) {
+  const ids = {
+    speed: 'mob-tel-speed', gear: 'mob-tel-gear',
+    drs: 'mob-tel-drs', rpm: 'mob-tel-rpm',
+  };
+  el('mob-tel-speed').textContent = speed != null ? Math.round(speed) : '—';
+  el('mob-tel-gear').textContent  = gear  != null ? Math.round(gear)  : '—';
+  el('mob-tel-rpm').textContent   = rpm   != null ? Math.round(rpm).toLocaleString() : '—';
+  el('mob-tel-drs').textContent   = drs   != null ? (drs > 0 ? '✓ OPEN' : 'CLOSED') : '—';
+  el('mob-tel-drs').style.color   = drs > 0 ? '#39b54a' : '';
+
+  const thPct = throttle != null ? Math.min(100, Math.round(throttle)) : 0;
+  const brPct = brake    != null ? (brake > 0 ? 100 : 0) : 0;
+  el('mob-bar-throttle').style.width = thPct + '%';
+  el('mob-bar-brake').style.width    = brPct + '%';
+  el('mob-val-throttle').textContent = throttle != null ? Math.round(throttle) + '%' : '—';
+  el('mob-val-brake').textContent    = brake    != null ? (brake > 0 ? 'ON' : 'OFF') : '—';
+}
+
 // ── Bootstrap ──────────────────────────────────────────────────────────────────
 
 init();
+initMobile();

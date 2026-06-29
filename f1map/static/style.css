@@ -383,3 +383,120 @@ aside {
 .cmp-h { color: #ff6060; }
 .cmp-i { color: #60c0ff; }
 .cmp-w { color: #80c0ff; }
+
+/* ── Mobile tabs ──────────────────────────────────────────────────────────── */
+#mobile-tabs {
+  display: none;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#mobile-tabs button {
+  flex: 1;
+  border: none;
+  border-radius: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--dim);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 8px 4px;
+}
+#mobile-tabs button:last-child { border-right: none; }
+#mobile-tabs button.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+
+/* ── Mobile bottom sheet ─────────────────────────────────────────────────── */
+#mobile-sheet {
+  display: none;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+/* ── Responsive: ≤ 768px ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* Lock body to full viewport, allow no scroll */
+  body { overflow: hidden; }
+  #app { height: 100dvh; }
+
+  /* Header: compact */
+  #header {
+    flex-direction: column;
+    align-items: flex-start;
+    height: auto;
+    padding: 8px 12px 6px;
+    gap: 6px;
+  }
+  .brand { font-size: 1rem; }
+  #session-selector {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  #session-selector select { flex: 1; min-width: 0; font-size: 0.78rem; padding: 5px 6px; }
+  #btn-load { padding: 5px 16px; }
+
+  /* Hide desktop sidebars */
+  #sidebar-left, #sidebar-right { display: none; }
+
+  /* Stack layout */
+  #main {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+  }
+
+  /* Canvas takes all space */
+  #center { grid-column: 1; grid-row: 1; }
+  #canvas-wrap { flex: 1; }
+
+  /* Timeline: larger touch targets */
+  #timeline {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 6px 10px;
+    gap: 6px;
+  }
+  #btn-play, #btn-restart { font-size: 1rem; padding: 6px 14px; min-width: 42px; }
+  #scrubber { width: 100%; order: 10; margin: 0; height: 6px; }
+  #t-current, #t-total { font-size: 0.78rem; }
+  .speed-label { margin-left: auto; }
+
+  /* Mobile tab bar */
+  #mobile-tabs { display: flex; }
+  #mobile-tabs button { padding: 10px 4px; }
+
+  /* Mobile bottom sheet */
+  #mobile-sheet {
+    display: block;
+    max-height: 35vh;
+  }
+
+  /* Telemetry inside sheet: horizontal grid */
+  #telemetry-panel { border-bottom: none; }
+  .tel-grid { grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 8px; }
+  .tel-value { font-size: 0.85rem; }
+
+  /* Bars inside sheet */
+  .bar-row { padding: 3px 8px; }
+
+  /* Laps table font */
+  #laps-table { font-size: 0.7rem; }
+  #laps-table th, #laps-table td { padding: 5px 4px; }
+
+  /* Driver list inside sheet */
+  #mobile-driver-list { padding: 6px 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .mob-drv {
+    display: flex; align-items: center; gap: 5px;
+    background: var(--bg3); border-radius: 20px;
+    padding: 5px 10px; font-size: 0.78rem; cursor: pointer;
+    border: 1.5px solid transparent;
+  }
+  .mob-drv.selected { border-color: var(--accent); }
+  .mob-drv.hidden { opacity: 0.35; }
+  .mob-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .mob-abr { font-family: var(--mono); font-weight: 700; }
+}
