@@ -1,0 +1,4 @@
+mcp>=1.28
+PyJWT[crypto]>=2.8
+httpx>=0.27
+uvicorn>=0.30
