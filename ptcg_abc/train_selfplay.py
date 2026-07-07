@@ -79,21 +79,39 @@ def main():
         cand = mutate(champion, rng)
         fit = play_pair(cand, champion, args.games, rng)
         accepted = fit > 0.5 + args.margin
+        anchor = None
+        if accepted:
+            # Anti-drift anchor: a promotion must also hold up against the
+            # original defaults, or noisy wins vs the champion accumulate
+            # into a genuinely worse policy (observed: 6 promotions -> 47.2%
+            # vs defaults with margin 0.03 and no anchor).
+            anchor = play_pair(cand, defaults, args.games, rng)
+            accepted = anchor >= 0.5
         if accepted:
             champion = cand
             promotions += 1
-        diff = {k: round(cand[k], 1) for k in cand if abs(cand[k] - champion.get(k, cand[k])) > 1e-9 or accepted}
-        print(f"iter {it}: fit={fit:.1%} {'PROMOTE' if accepted else ''}", flush=True)
-        history.append({"iter": it, "fit": fit, "accepted": accepted,
+        anchor_s = f" anchor={anchor:.1%}" if anchor is not None else ""
+        print(f"iter {it}: fit={fit:.1%}{anchor_s} {'PROMOTE' if accepted else ''}", flush=True)
+        history.append({"iter": it, "fit": fit, "anchor": anchor, "accepted": accepted,
                         "weights": {k: round(v, 3) for k, v in cand.items()}})
 
     final_vs_default = play_pair(champion, defaults, args.games * 2, rng)
     print(f"\npromotions: {promotions}")
     print(f"champion vs default weights ({args.games * 2} games): {final_vs_default:.1%}")
     print("champion:", json.dumps({k: round(v, 3) for k, v in champion.items()}))
-    with open("weights_best.json", "w") as f:
-        json.dump({"weights": champion, "vs_default": final_vs_default,
-                   "promotions": promotions, "history": history}, f, indent=1)
+    result = {"weights": champion, "vs_default": final_vs_default,
+              "promotions": promotions, "history": history}
+    # Only ship weights that beat the defaults on the big final sample;
+    # agent.py auto-loads weights_best.json, so a noise champion would
+    # silently degrade the agent.
+    if final_vs_default >= 0.52 and champion != defaults:
+        with open("weights_best.json", "w") as f:
+            json.dump(result, f, indent=1)
+        print("saved weights_best.json")
+    else:
+        with open("selfplay_run.json", "w") as f:
+            json.dump(result, f, indent=1)
+        print("champion did not beat defaults; kept defaults (log: selfplay_run.json)")
     agent_mod.WEIGHTS = defaults
 
 
