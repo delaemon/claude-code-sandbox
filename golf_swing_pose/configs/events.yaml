@@ -1,0 +1,17 @@
+# EventModel configuration (SwingNet/GolfDB-inspired BiLSTM event head)
+
+# 8 golf swing events (McNally et al., "GolfDB", CVPRW 2019) + implicit "no event" class
+events:
+  - address
+  - toe_up
+  - mid_backswing
+  - top
+  - mid_downswing
+  - impact
+  - follow_through
+  - finish
+
+lstm_hidden_dim: 256
+lstm_num_layers: 2
+bidirectional: true
+dropout: 0.3

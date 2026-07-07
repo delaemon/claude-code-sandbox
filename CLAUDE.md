@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository structure
 
-This repo contains two independent projects:
+This repo contains three independent projects:
 
 - **Root (`main.py`, `orchestrator.py`, `agents/`, `utils/`)** — a multi-agent coding pipeline that automates the full SDLC using the Anthropic API.
 - **`f1map/`** — a standalone FastAPI + vanilla-JS web app that visualizes F1 race telemetry using FastF1 data. See `f1map/CLAUDE.md` for its commands and architecture.
+- **`golf_swing_pose/`** — a PyTorch pipeline that extracts 2D golf-swing skeleton keypoints and swing-phase (address/top/impact/etc.) events from front-view iPhone video, using an original SimCC-style pose head and a BiLSTM event head (not a wrapper around MediaPipe/MMPose). See `golf_swing_pose/README.md` for setup, usage, and accuracy caveats.
 
 They do not share code or dependencies; treat them as separate codebases when making changes.
 
