@@ -1,0 +1,193 @@
+:root {
+  --bg: #0f1420;
+  --panel: #1a2130;
+  --panel-2: #232c40;
+  --text: #e8ecf4;
+  --muted: #8b94a8;
+  --accent: #3d8bfd;
+  --accent-2: #2ecc71;
+  --danger: #e74c3c;
+  --bubble-me: #2b5cb8;
+  --bubble-peer: #2a3245;
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+}
+
+#app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100dvh;
+}
+
+header h1 {
+  font-size: 1.4rem;
+  margin-bottom: 8px;
+}
+
+.my-id-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  flex-wrap: wrap;
+}
+
+.my-id-box .label { color: var(--muted); font-size: 0.85rem; }
+
+.my-id-box code {
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+  background: var(--panel-2);
+  padding: 4px 10px;
+  border-radius: 6px;
+  user-select: all;
+}
+
+.status {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.status.ok { color: var(--accent-2); }
+.status.error { color: var(--danger); }
+
+.panel {
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.panel h2 { font-size: 1rem; margin-bottom: 8px; }
+
+.hint { color: var(--muted); font-size: 0.85rem; margin-bottom: 12px; }
+
+.row { display: flex; gap: 8px; }
+.row.center { justify-content: center; }
+
+input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-2);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 1rem;
+}
+input[type="text"]:focus { outline: 2px solid var(--accent); }
+
+button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 0.95rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+button:hover { filter: brightness(1.15); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.primary { background: var(--accent); }
+button.danger { background: var(--danger); }
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.chat-header #peer-name { font-size: 0.9rem; color: var(--muted); }
+.call-buttons { display: flex; gap: 6px; }
+.call-buttons button { padding: 8px 12px; font-size: 0.85rem; }
+
+.messages {
+  height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 4px;
+  margin-bottom: 12px;
+}
+
+.msg {
+  max-width: 75%;
+  padding: 8px 12px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.msg.me { align-self: flex-end; background: var(--bubble-me); border-bottom-right-radius: 4px; }
+.msg.peer { align-self: flex-start; background: var(--bubble-peer); border-bottom-left-radius: 4px; }
+.msg .time { display: block; font-size: 0.7rem; color: rgba(255,255,255,0.55); margin-top: 2px; }
+.msg.system { align-self: center; background: none; color: var(--muted); font-size: 0.8rem; }
+
+.videos { display: flex; gap: 8px; position: relative; }
+video {
+  background: #000;
+  border-radius: 8px;
+  width: 100%;
+  max-height: 300px;
+}
+#local-video {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 28%;
+  max-height: 100px;
+  border: 1px solid var(--panel-2);
+}
+.videos.audio-only { display: none; }
+
+.call-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  justify-content: center;
+}
+#call-status { color: var(--accent-2); font-size: 0.9rem; }
+
+.dialog {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+.dialog-body {
+  background: var(--panel);
+  padding: 24px;
+  border-radius: var(--radius);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 90%;
+}
+
+footer { margin-top: auto; text-align: center; }
+footer p { color: var(--muted); font-size: 0.75rem; }
+
+.hidden { display: none !important; }
