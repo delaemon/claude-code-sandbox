@@ -1,0 +1,6 @@
+# 認証情報・実行時生成物は絶対にコミットしない
+.env
+storage_state.json
+shots/
+*.log
+__pycache__/
