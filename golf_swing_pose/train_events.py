@@ -18,6 +18,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from data.golfdb_dataset import GolfDBEventDataset
+from models.detector import PersonDetector
 from models.event_head import SwingEventModel
 from models.pose_model import build_pose_model, load_config
 
@@ -33,6 +34,7 @@ def parse_args():
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--out", default="weights/event_best.pt")
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    p.add_argument("--detect_every_n", type=int, default=5, help="Re-run the person detector every N frames when extracting per-clip features")
     return p.parse_args()
 
 
@@ -45,8 +47,17 @@ def main():
     pose_model = build_pose_model(args.pose_config, checkpoint_path=args.pose_checkpoint, device=args.device)
     for param in pose_model.parameters():
         param.requires_grad = False
+    detector = PersonDetector(device=args.device)
 
-    dataset = GolfDBEventDataset(args.videos_dir, args.annotation_file, pose_model, event_names, device=args.device)
+    dataset = GolfDBEventDataset(
+        args.videos_dir,
+        args.annotation_file,
+        pose_model,
+        detector,
+        event_names,
+        device=args.device,
+        detect_every_n=args.detect_every_n,
+    )
     # Clips have different lengths, so we train with an effective batch size of 1 (one clip per step).
     loader = DataLoader(dataset, batch_size=1, shuffle=True)
 

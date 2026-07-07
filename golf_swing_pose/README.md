@@ -82,9 +82,9 @@ python examples/smoke_test.py
 ```
 golf_swing_pose/
   configs/           # モデル・キーポイント定義・イベント定義
-  models/            # backbone / pose_head(SimCC) / pose_model / event_head / detector
+  models/            # backbone / pose_head(SimCC) / pose_model / event_head / detector / pretrained-fallback共通処理
   data/              # COCO/GolfDB形式データローダ、アフィン変換・SimCCラベルエンコード
-  pipeline/          # 動画IO、bboxトラッキング、One-Euro平滑化、可視化
+  pipeline/          # 動画IO、検出+クロップ+姿勢推定の共通処理(infer.pyと学習データローダで共有)、bboxトラッキング、One-Euro平滑化、可視化
   infer.py           # 推論エントリポイント
   train_pose.py      # 姿勢モデル学習エントリポイント
   train_events.py    # イベント検出モデル学習エントリポイント

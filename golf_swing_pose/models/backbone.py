@@ -8,13 +8,11 @@ in this environment. Only the head (see pose_head.py) is novel/trainable
 from random initialization.
 """
 
-import logging
-
 import torch
 import torch.nn as nn
 import torchvision
 
-log = logging.getLogger(__name__)
+from .pretrained import build_with_pretrained_fallback
 
 
 class ConvNeXtBackbone(nn.Module):
@@ -32,19 +30,9 @@ class ConvNeXtBackbone(nn.Module):
             if pretrained
             else None
         )
-        try:
-            convnext = torchvision.models.convnext_tiny(weights=weights)
-        except (RuntimeError, OSError) as e:
-            if weights is None:
-                raise
-            log.warning(
-                "Could not download ImageNet-pretrained ConvNeXt-Tiny weights (%s). "
-                "Falling back to random initialization -- accuracy will be significantly "
-                "worse until the model is trained. Pre-download the weights and set "
-                "TORCH_HOME, or retry with network access, to use the pretrained backbone.",
-                e,
-            )
-            convnext = torchvision.models.convnext_tiny(weights=None)
+        convnext = build_with_pretrained_fallback(
+            torchvision.models.convnext_tiny, weights, description="ConvNeXt-Tiny backbone"
+        )
         self.features = convnext.features  # Sequential of downsampling stages
         self.out_channels = 768  # convnext_tiny's final stage channel count
 

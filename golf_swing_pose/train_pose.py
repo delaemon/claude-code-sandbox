@@ -23,7 +23,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from data.coco_keypoints_dataset import CocoKeypointsDataset
-from models.pose_model import PoseModel, load_config
+from models.pose_model import PoseModel, load_checkpoint, load_config
 
 
 def simcc_loss(x_logits, y_logits, label_x, label_y, target_weight):
@@ -62,8 +62,7 @@ def main():
 
     model = PoseModel(config, pretrained_backbone=args.resume is None, freeze_backbone=args.freeze_backbone)
     if args.resume:
-        state = torch.load(args.resume, map_location=args.device)
-        model.load_state_dict(state["model"] if "model" in state else state)
+        load_checkpoint(model, args.resume, device=args.device)
     model.to(args.device)
 
     dataset = CocoKeypointsDataset(

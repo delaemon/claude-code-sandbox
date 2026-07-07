@@ -14,31 +14,44 @@ works with self-recorded/annotated clips:
 
 `events` must have exactly len(event_names) frame indices, in the same
 temporal order as `configs/events.yaml:events`. Each clip is assumed to
-already be a single-swing, single-golfer video (as in GolfDB) -- this
-loader does not run person detection, it simply resizes each full frame to
-the pose model's input size before extracting features.
+already be a single-swing, single-golfer video (as in GolfDB). Features are
+extracted with the same person-detect-and-crop pipeline used at inference
+time (`pipeline.pose_sequence.extract_pose_sequence`) rather than a naive
+full-frame resize -- otherwise the event model would train on a different
+input distribution than the person-crop it actually sees from infer.py,
+silently degrading accuracy.
 """
 
 import json
 import os
 from typing import List
 
-import cv2
 import torch
 from torch.utils.data import Dataset
 
-from ..pipeline.video_io import read_all_frames_rgb
-from .transforms import normalize_crop
+from pipeline.pose_sequence import extract_pose_sequence
+from pipeline.video_io import read_all_frames_rgb
 
 
 class GolfDBEventDataset(Dataset):
-    def __init__(self, videos_dir: str, annotation_file: str, pose_model, event_names: List[str], device: str = "cpu"):
+    def __init__(
+        self,
+        videos_dir: str,
+        annotation_file: str,
+        pose_model,
+        detector,
+        event_names: List[str],
+        device: str = "cpu",
+        detect_every_n: int = 5,
+    ):
         with open(annotation_file, "r") as f:
             self.samples = json.load(f)
         self.videos_dir = videos_dir
         self.pose_model = pose_model
+        self.detector = detector
         self.event_names = event_names
         self.device = device
+        self.detect_every_n = detect_every_n
 
     def __len__(self) -> int:
         return len(self.samples)
@@ -47,15 +60,11 @@ class GolfDBEventDataset(Dataset):
     def __getitem__(self, idx: int):
         sample = self.samples[idx]
         frames = read_all_frames_rgb(os.path.join(self.videos_dir, sample["video"]))
-        input_h, input_w = self.pose_model.input_size
 
-        feats = []
-        for frame in frames:
-            crop = cv2.resize(frame, (input_w, input_h))
-            tensor = normalize_crop(crop).unsqueeze(0).to(self.device)
-            _, _, _, pooled = self.pose_model.predict(tensor)
-            feats.append(pooled.squeeze(0).cpu())
-        feats = torch.stack(feats, dim=0)  # (T, C)
+        _, _, _, _, pooled_feats = extract_pose_sequence(
+            frames, self.pose_model, self.detector, device=self.device, detect_every_n=self.detect_every_n
+        )
+        feats = torch.stack(pooled_feats, dim=0)  # (T, C)
 
         none_class = len(self.event_names)
         labels = torch.full((len(frames),), fill_value=none_class, dtype=torch.long)

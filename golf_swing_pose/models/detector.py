@@ -6,18 +6,16 @@ stage -- PoseModel (see pose_model.py) does the actual keypoint estimation
 on the resulting crop.
 """
 
-import logging
 from typing import Optional, Tuple
 
 import numpy as np
 import torch
-import torchvision
 from torchvision.models.detection import (
     FasterRCNN_MobileNet_V3_Large_320_FPN_Weights,
     fasterrcnn_mobilenet_v3_large_320_fpn,
 )
 
-log = logging.getLogger(__name__)
+from .pretrained import build_with_pretrained_fallback
 
 Box = Tuple[float, float, float, float]  # (x1, y1, x2, y2)
 
@@ -27,21 +25,14 @@ _PERSON_LABEL = 1  # COCO category index for "person" in torchvision's detection
 class PersonDetector:
     def __init__(self, device: str = "cpu", score_thresh: float = 0.5, pretrained: bool = True):
         weights = FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.COCO_V1 if pretrained else None
-        try:
-            self.model = fasterrcnn_mobilenet_v3_large_320_fpn(weights=weights)
-        except (RuntimeError, OSError) as e:
-            if weights is None:
-                raise
-            log.warning(
-                "Could not download COCO-pretrained person detector weights (%s). "
-                "Falling back to a randomly initialized detector -- it will not find "
-                "anyone. Pre-download the weights and set TORCH_HOME, or retry with "
-                "network access, to use the pretrained detector.",
-                e,
-            )
-            # weights_backbone also defaults to a pretrained (downloadable) checkpoint;
-            # it must be disabled explicitly too, or this fallback would also try to fetch it.
-            self.model = fasterrcnn_mobilenet_v3_large_320_fpn(weights=None, weights_backbone=None)
+        # weights_backbone also defaults to a pretrained (downloadable) checkpoint; it must
+        # be disabled explicitly in the fallback too, or that would also try to fetch it.
+        self.model = build_with_pretrained_fallback(
+            fasterrcnn_mobilenet_v3_large_320_fpn,
+            weights,
+            description="Faster R-CNN person detector",
+            weights_backbone=None,
+        )
         self.model.eval().to(device)
         self.device = device
         self.score_thresh = score_thresh

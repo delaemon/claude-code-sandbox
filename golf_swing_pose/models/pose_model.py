@@ -14,7 +14,6 @@ class PoseModel(nn.Module):
     def __init__(self, config: dict, pretrained_backbone: bool = True, freeze_backbone: bool = False):
         super().__init__()
         self.keypoint_names = list(config["keypoints"])
-        self.skeleton_edges = [tuple(e) for e in config.get("skeleton_edges", [])]
         self.input_size = tuple(config["input_size"])  # (H, W)
         self.split_ratio = float(config["simcc_split_ratio"])
 
@@ -54,6 +53,14 @@ def load_config(config_path: str) -> dict:
         return yaml.safe_load(f)
 
 
+def load_checkpoint(model: nn.Module, checkpoint_path: str, device: str = "cpu") -> None:
+    """Loads a checkpoint saved by train_pose.py/train_events.py (which wrap
+    the state dict as {"model": ...}) or a bare state dict, in place.
+    """
+    state = torch.load(checkpoint_path, map_location=device)
+    model.load_state_dict(state["model"] if "model" in state else state)
+
+
 def build_pose_model(
     config_path: str,
     checkpoint_path: Optional[str] = None,
@@ -63,8 +70,7 @@ def build_pose_model(
     config = load_config(config_path)
     model = PoseModel(config, pretrained_backbone=pretrained_backbone and checkpoint_path is None)
     if checkpoint_path:
-        state = torch.load(checkpoint_path, map_location=device)
-        model.load_state_dict(state["model"] if "model" in state else state)
+        load_checkpoint(model, checkpoint_path, device=device)
     model.to(device)
     model.eval()
     return model

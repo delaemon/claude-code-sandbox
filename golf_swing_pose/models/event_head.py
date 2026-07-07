@@ -57,14 +57,20 @@ def decode_events(logits: torch.Tensor, event_names: List[str]) -> Tuple[List[in
     occur in this fixed temporal order within a single swing.
     """
     probs = torch.softmax(logits, dim=-1)
+    num_frames = probs.shape[0]
     num_events = len(event_names)
 
     event_probs = probs[:, :num_events]  # exclude the trailing "none" class
     frames = event_probs.argmax(dim=0).tolist()
-    scores = event_probs.amax(dim=0).tolist()
 
     for i in range(1, num_events):
         if frames[i] <= frames[i - 1]:
             frames[i] = frames[i - 1] + 1
+    frames = [min(f, num_frames - 1) for f in frames]
+
+    # Re-read the confidence at each event's *final* (possibly nudged/clamped)
+    # frame, not its raw pre-nudge argmax -- otherwise a reported score can
+    # describe a different frame than the one actually returned.
+    scores = [event_probs[frames[i], i].item() for i in range(num_events)]
 
     return frames, scores

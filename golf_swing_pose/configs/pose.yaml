@@ -2,7 +2,6 @@
 
 input_size: [256, 192]   # [height, width] of the person crop fed to the backbone
 simcc_split_ratio: 2.0    # SimCC discretization: num_bins = size * split_ratio (sub-pixel resolution)
-backbone_out_channels: 768  # convnext_tiny final stage channel count
 head_hidden_dim: 256
 num_attention_heads: 4
 
