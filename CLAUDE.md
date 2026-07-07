@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository structure
 
-This repo contains two independent projects:
+This repo contains three independent projects:
 
 - **Root (`main.py`, `orchestrator.py`, `agents/`, `utils/`)** — a multi-agent coding pipeline that automates the full SDLC using the Anthropic API.
 - **`f1map/`** — a standalone FastAPI + vanilla-JS web app that visualizes F1 race telemetry using FastF1 data. See `f1map/CLAUDE.md` for its commands and architecture.
+- **`dataagent_bench/`** — a solution pipeline for KDD Cup 2026 DataAgent-Bench (task.json + context/ → prediction.csv): deterministic context profiling, a code-executing solve agent, format validation/repair, self-consistency voting, cross-route verification, and a local eval harness. See `dataagent_bench/README.md`. Offline check: `python -m dataagent_bench.smoke_test`.
 
 They do not share code or dependencies; treat them as separate codebases when making changes.
 

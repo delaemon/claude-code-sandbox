@@ -9,3 +9,5 @@ build/
 .env
 f1map/cache/
 f1map/data_cache/
+dataagent_bench/sample_tasks/**/*.sqlite
+runs/

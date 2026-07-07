@@ -1,0 +1,5 @@
+[
+  {"product_id": "P1", "name": "Widget", "category": "hardware", "price": 10.0},
+  {"product_id": "P2", "name": "Gadget", "category": "hardware", "price": 25.0},
+  {"product_id": "P3", "name": "License", "category": "software", "price": 100.0}
+]

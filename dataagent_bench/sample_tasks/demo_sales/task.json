@@ -1,0 +1,6 @@
+{
+  "task_id": "demo_sales",
+  "question": "For each product category, compute the total revenue (price * quantity) across all 2025 orders in orders.csv, joining product metadata from products.json and store info from stores.sqlite. Output one row per category.",
+  "output_columns": ["category", "total_revenue"],
+  "notes": "Demo task used only to smoke-test the harness; not part of the real benchmark."
+}
