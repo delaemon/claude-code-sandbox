@@ -10,6 +10,9 @@ Sub-selects use a generic card-value score: pick high for gains (deck
 searches, new active), low for costs (hand discards, energy payment).
 """
 
+import json
+import os
+
 import carddb
 
 # Placeholder deck bundled with the engine (Kyogre / Mega Abomasnow line).
@@ -19,6 +22,32 @@ DECK = (
     + [1219] * 4 + [1227] * 4 + [1262] * 2
     + [3] * 33
 )
+
+# Decision weights. Defaults reproduce the hand-tuned heuristic exactly;
+# train_selfplay.py optimizes this vector and loads weights_best.json.
+WEIGHTS = {
+    "evolve": 90.0,
+    "bench": 80.0,
+    "pokemon_attach": 78.0,
+    "energy": 70.0,
+    "energy_active": 5.0,
+    "tool": 60.0,
+    "ability": 55.0,
+    "effect_ok": 55.0,
+    "item": 50.0,
+    "supporter": 45.0,
+    "filler": 20.0,
+    "ko_bonus": 500.0,
+    "mill_min_deck": 8.0,
+    "battler_hp": 1.0,
+    "battler_dmg": 2.0,
+    "active_energy": 40.0,
+}
+
+_weights_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "weights_best.json")
+if os.path.exists(_weights_path):
+    with open(_weights_path) as _f:
+        WEIGHTS.update(json.load(_f)["weights"])
 
 OPT_NUMBER = 0
 OPT_CARD = 3
@@ -92,7 +121,7 @@ def estimate_damage(attack_id, me, opp_active, my_active):
         dmg = 20 * _count_energy(me.get("discard"))
     elif attack_id == 1046:  # Mega Abomasnow Hammer-lanche: mill 6, 100 x {W} milled
         deck_count = me.get("deckCount", 0)
-        if deck_count <= 8:
+        if deck_count <= WEIGHTS["mill_min_deck"]:
             return -1  # deck-out risk outweighs the nuke
         seen = (
             _count_energy(me.get("hand"))
@@ -133,7 +162,7 @@ def battler_value(card_id):
     if not c or c["cardType"] != 0:
         return 0
     dmg = max((carddb.attack_damage(a) for a in c["attacks"]), default=0)
-    return c["hp"] + 2 * dmg
+    return WEIGHTS["battler_hp"] * c["hp"] + WEIGHTS["battler_dmg"] * dmg
 
 
 def _pick_cards(sel, players, gain):
@@ -198,40 +227,40 @@ def _main_phase(sel, cur):
         t = o["type"]
         s = None
         if t == OPT_EVOLVE:
-            s = 90
+            s = WEIGHTS["evolve"]
         elif t == OPT_PLAY:
             c = hand_card(o["index"])
             if c and c["cardType"] == 0:
-                s = 80  # bench a basic
+                s = WEIGHTS["bench"]  # bench a basic
             elif c and c["cardType"] in (1, 4):
-                s = 50  # item / stadium
+                s = WEIGHTS["item"]  # item / stadium
             elif c and c["cardType"] == 3:
-                s = 45  # supporter
+                s = WEIGHTS["supporter"]  # supporter
         elif t == OPT_ATTACH:
             c = hand_card(o["index"])
             target = _in_play(players, you, o["inPlayArea"], o["inPlayIndex"])
             if c and c["cardType"] in (5, 6) and not cur["energyAttached"]:
                 if target is not None and wants_energy(target):
-                    s = 70 + (5 if o["inPlayArea"] == carddb.AREA_ACTIVE else 0)
+                    s = WEIGHTS["energy"] + (WEIGHTS["energy_active"] if o["inPlayArea"] == carddb.AREA_ACTIVE else 0)
                 else:
-                    s = 20  # target already powered; low priority filler
+                    s = WEIGHTS["filler"]  # target already powered; low priority filler
             elif c and c["cardType"] == 2:
-                s = 60 if target is not None and not target.get("tools") else None
+                s = WEIGHTS["tool"] if target is not None and not target.get("tools") else None
             elif c and c["cardType"] == 0:
-                s = 78  # pokemon placed via attach-style option (bench slot)
+                s = WEIGHTS["pokemon_attach"]  # pokemon placed via attach-style option (bench slot)
         elif t == OPT_ABILITY:
             key = (cur["turn"], o.get("area"), o.get("index"))
             if _ability_uses.get(key, 0) < 2:
-                s = 55
+                s = WEIGHTS["ability"]
         elif t == OPT_EFFECT_OK:
-            s = 55
+            s = WEIGHTS["effect_ok"]
         elif t == OPT_ATTACK:
             my_active = (me.get("active") or [None])[0]
             opp_active = (opp.get("active") or [None])[0]
             dmg = estimate_damage(o["attackId"], me, opp_active, my_active)
             hp_left = opp_active.get("hp", 9999) if opp_active else 9999
             if dmg >= 0:
-                attacks.append((dmg + (500 if dmg >= hp_left else 0), i))
+                attacks.append((dmg + (WEIGHTS["ko_bonus"] if dmg >= hp_left else 0), i))
             continue
         if s is not None:
             setup.append((s, i, t, o))
@@ -278,7 +307,7 @@ def agent(obs):
             if o.get("area") in (carddb.AREA_ACTIVE, carddb.AREA_BENCH):
                 entry = _in_play(players, o["playerIndex"], o["area"], o["index"])
                 if entry:
-                    v += 40 * len(entry.get("energies") or [])
+                    v += WEIGHTS["active_energy"] * len(entry.get("energies") or [])
             return v
 
         order = sorted(range(len(opts)), key=lambda i: -active_score(opts[i]))
