@@ -5,20 +5,39 @@
 //
 // - シグナリング: PeerJS の無料公開クラウドサーバー(0.peerjs.com)。
 //   接続の仲介にだけ使われ、メッセージや音声は通らない。
-// - NAT越え: Google の無料 STUN サーバー。
+// - NAT越え: Google の無料 STUN + (設定時) Metered の無料 TURN リレー。
+//   TURN 経由でも中身は DTLS/SRTP で暗号化されたまま(リレーは復号できない)。
 // - チャット: WebRTC DataChannel / 通話: WebRTC MediaStream。
-//   すべて端末間で直接、DTLS/SRTP により暗号化されて流れる。
 // ============================================================
 
-const PEER_CONFIG = {
-  // host を指定しないと PeerJS の無料クラウド(0.peerjs.com)に接続される
-  config: {
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-    ],
-  },
-};
+const STUN_SERVERS = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+];
+
+// config.js の設定に応じて iceServers を組み立てる。
+// turnCredentialsUrl が設定されていれば Metered API から TURN
+// クレデンシャルを取得(取得失敗時は STUN のみで続行)。
+async function buildIceServers() {
+  const cfg = window.P2PTALK_CONFIG || {};
+  const servers = [...STUN_SERVERS, ...(cfg.extraIceServers || [])];
+  let turnEnabled = (cfg.extraIceServers || []).some((s) =>
+    String(s.urls).startsWith("turn")
+  );
+
+  if (cfg.turnCredentialsUrl) {
+    try {
+      const res = await fetch(cfg.turnCredentialsUrl);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const turnServers = await res.json();
+      servers.push(...turnServers);
+      turnEnabled = true;
+    } catch (e) {
+      console.warn("TURNクレデンシャル取得に失敗(STUNのみで続行):", e);
+    }
+  }
+  return { servers, turnEnabled };
+}
 
 // --- DOM ---
 const $ = (id) => document.getElementById(id);
@@ -62,13 +81,25 @@ function setStatus(text, cls = "") {
 // ============================================================
 // 初期化(IDが衝突したら再生成してリトライ)
 // ============================================================
-function init(retries = 3) {
+let iceSetup = null; // { servers, turnEnabled } — 初回に一度だけ取得
+
+function onlineStatusMsg() {
+  return (
+    "オンライン — 相手のIDを入力するか、着信を待ってください" +
+    (iceSetup && iceSetup.turnEnabled ? "(TURN有効)" : "")
+  );
+}
+
+async function init(retries = 3) {
+  if (!iceSetup) iceSetup = await buildIceServers();
+
   const myId = generateId();
-  peer = new Peer(myId, PEER_CONFIG);
+  // host を指定しないと PeerJS の無料クラウド(0.peerjs.com)に接続される
+  peer = new Peer(myId, { config: { iceServers: iceSetup.servers } });
 
   peer.on("open", (id) => {
     myIdEl.textContent = id;
-    setStatus("オンライン — 相手のIDを入力するか、着信を待ってください", "ok");
+    setStatus(onlineStatusMsg(), "ok");
   });
 
   peer.on("connection", (incoming) => {
@@ -141,7 +172,7 @@ function setupConnection(c) {
 
 function resetConnection() {
   conn = null;
-  setStatus("オンライン — 相手のIDを入力するか、着信を待ってください", "ok");
+  setStatus(onlineStatusMsg(), "ok");
   connectPanel.classList.remove("hidden");
 }
 

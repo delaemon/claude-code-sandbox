@@ -9,6 +9,7 @@ LINE の代替として使える、**広告なし・自前サーバー不要・�
 | ホスティング | GitHub Pages(静的ファイル3つだけ) | 無料 |
 | シグナリング(接続の仲介) | PeerJS 公式の無料公開サーバー(`0.peerjs.com`) | 無料 |
 | NAT 越え | Google の公開 STUN サーバー | 無料 |
+| NAT 越え(STUN で不可の環境) | Metered / Open Relay の TURN(要・無料登録) | 無料(月 20GB) |
 | チャット・音声・映像の通信 | WebRTC による端末間の直接通信(P2P) | 無料 |
 
 メッセージ・音声・映像は**サーバーを一切経由せず**、WebRTC(DTLS/SRTP)で暗号化されて相手の端末に直接届きます。シグナリングサーバーは「相手を見つけて接続を確立する」瞬間にだけ使われます。
@@ -28,11 +29,26 @@ LINE の代替として使える、**広告なし・自前サーバー不要・�
 
 > マイク・カメラは HTTPS でしか使えません。GitHub Pages は自動で HTTPS になるので追加設定は不要です。ローカルで試す場合は `python3 -m http.server` で `http://localhost:8000/p2ptalk/` を開いてください(localhost は例外的に許可されます)。
 
+## TURN の設定(キャリア回線同士でも繋がるようにする)
+
+STUN だけでは越えられない NAT(キャリア回線同士・対称型 NAT など)があります。その場合は TURN リレーサーバー経由で通信します。[Metered / Open Relay Project](https://www.metered.ca/tools/openrelay/) の**無料プラン(月 20GB)**で有効化できます:
+
+1. [dashboard.metered.ca/signup](https://dashboard.metered.ca/signup) で無料アカウントを作成(プラン選択画面が出たら **Free** を選ぶ)
+2. ダッシュボードで TURN クレデンシャルを作成
+3. 表示される credential URL(`https://<アプリ名>.metered.live/api/v1/turn/credentials?apiKey=xxxx` の形式)を `config.js` の `turnCredentialsUrl` に貼り付ける
+
+設定するとアプリ起動時に TURN クレデンシャルを自動取得し、ステータスに「(TURN有効)」と表示されます。取得に失敗した場合は STUN のみで動作を続けます。
+
+補足:
+
+- TURN はあくまで**暗号化されたパケットの中継**で、リレーサーバーは中身(DTLS/SRTP)を復号できません。
+- TURN が実際に使われるのは直接接続(P2P)が確立できなかったときだけです。多くの環境では従来どおり P2P 直結で、無料枠(20GB/月)はほとんど消費しません。目安として、TURN 経由になった場合でも音声通話は約 0.5MB/分です。
+- 自前や他社の TURN を使う場合は `config.js` の `extraIceServers` に直接記述できます。
+
 ## 制限事項(P2P・無料構成ゆえのトレードオフ)
 
 - **両者が同時にページを開いている必要があります。** サーバーを持たないため、オフラインの相手へのメッセージ蓄積(プッシュ通知)はできません。
 - **メッセージ履歴は保存されません。** タブを閉じると消えます(サーバーに何も残らない、とも言えます)。
-- **一部のネットワークでは繋がらないことがあります。** STUN だけでは越えられない NAT(キャリア回線同士など)があり、その場合は TURN リレーサーバーが必要です。無料枠のある TURN(例: [Open Relay](https://www.metered.ca/tools/openrelay/))を `app.js` の `iceServers` に追加すれば改善できます。
 - **1 対 1 専用です。** グループチャットは未対応です。
 
 ## ファイル構成
@@ -41,6 +57,7 @@ LINE の代替として使える、**広告なし・自前サーバー不要・�
 p2ptalk/
 ├── index.html   # UI(接続パネル / チャット / 通話 / 着信ダイアログ)
 ├── style.css    # スタイル(ダークテーマ、レスポンシブ)
+├── config.js    # 設定(TURN クレデンシャル URL・追加 ICE サーバー)
 ├── app.js       # PeerJS を使った接続・チャット・通話ロジック
 └── README.md
 ```
