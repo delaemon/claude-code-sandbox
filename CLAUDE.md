@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository structure
 
-This repo contains two independent projects:
+This repo contains three independent projects:
 
 - **Root (`main.py`, `orchestrator.py`, `agents/`, `utils/`)** — a multi-agent coding pipeline that automates the full SDLC using the Anthropic API.
 - **`f1map/`** — a standalone FastAPI + vanilla-JS web app that visualizes F1 race telemetry using FastF1 data. See `f1map/CLAUDE.md` for its commands and architecture.
+- **`street-fighter/`** — a dependency-free, single-file HTML5 canvas fighting game (SF6-style). Open `street-fighter/index.html` in a browser to play; see `street-fighter/README.md` for controls.
 
 They do not share code or dependencies; treat them as separate codebases when making changes.
 
