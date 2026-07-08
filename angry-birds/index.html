@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Angry Blobs 🐦</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐦</text></svg>">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: #1a2433;
+    touch-action: none;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+  #game {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    display: block;
+  }
+  #hud {
+    position: fixed;
+    top: env(safe-area-inset-top, 0);
+    left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    pointer-events: none;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,.45);
+    font-weight: 700;
+  }
+  #score { font-size: 20px; flex: 1; }
+  #level { font-size: 16px; opacity: .9; }
+  #hud button {
+    pointer-events: auto;
+    width: 44px; height: 44px;
+    border: none;
+    border-radius: 12px;
+    background: rgba(0,0,0,.35);
+    color: #fff;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  #hud button:active { background: rgba(0,0,0,.55); }
+  #overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 18, 30, .55);
+    backdrop-filter: blur(3px);
+    z-index: 10;
+  }
+  #overlay.hidden { display: none; }
+  .card {
+    background: linear-gradient(180deg, #ffffff, #eef3f8);
+    border-radius: 24px;
+    padding: 28px 36px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,.4);
+    max-width: 86vw;
+  }
+  .card h1 { font-size: 30px; color: #2b3a4d; margin-bottom: 6px; }
+  .card .stars { font-size: 40px; letter-spacing: 6px; margin: 6px 0 2px; }
+  .card p { color: #5b6b7d; font-size: 15px; margin-bottom: 18px; }
+  .card .btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .card button {
+    border: none;
+    border-radius: 14px;
+    padding: 14px 26px;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #fff;
+    background: #e8503a;
+    box-shadow: 0 4px 0 #b03823;
+  }
+  .card button.secondary { background: #6b8299; box-shadow: 0 4px 0 #4d6078; }
+  .card button:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.3); }
+  #rotate-hint {
+    position: fixed;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,.55);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    display: none;
+    z-index: 5;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  @media (orientation: portrait) { #rotate-hint { display: block; } }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+  <div id="score">SCORE 0</div>
+  <div id="level">LEVEL 1</div>
+  <button id="mute" aria-label="サウンド切替">🔊</button>
+  <button id="restart" aria-label="リスタート">↺</button>
+</div>
+<div id="overlay" class="hidden">
+  <div class="card">
+    <h1 id="ov-title">LEVEL CLEAR!</h1>
+    <div class="stars" id="ov-stars">⭐⭐⭐</div>
+    <p id="ov-text"></p>
+    <div class="btns">
+      <button id="ov-retry" class="secondary">もう一度</button>
+      <button id="ov-next">つぎへ ▶</button>
+    </div>
+  </div>
+</div>
+<div id="rotate-hint">📱 横向きにすると遊びやすいよ</div>
+<script src="lib/matter.min.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
