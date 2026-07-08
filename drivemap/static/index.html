@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>drivemap — 走行リプレイ</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.120/Build/Cesium/Widgets/widgets.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="cesiumContainer"></div>
+
+  <header id="controls">
+    <span class="brand">drivemap</span>
+    <select id="runSelect" title="走行データ"></select>
+    <div class="btn-group" id="cameraButtons">
+      <button data-mode="chase" class="active">チェイス</button>
+      <button data-mode="onboard">車載</button>
+      <button data-mode="overhead">俯瞰</button>
+      <button data-mode="free">フリー</button>
+    </div>
+    <button id="tilesetToggle">PLATEAU ▾</button>
+    <div id="tilesetPanel" hidden></div>
+    <span id="status"></span>
+  </header>
+
+  <footer id="playbar">
+    <button id="playPause">▶</button>
+    <select id="speedMult">
+      <option value="0.5">0.5×</option>
+      <option value="1" selected>1×</option>
+      <option value="2">2×</option>
+      <option value="4">4×</option>
+    </select>
+    <input type="range" id="scrub" min="0" max="1000" value="0">
+    <span id="timeLabel">0:00 / 0:00</span>
+  </footer>
+
+  <canvas id="hud" width="900" height="200"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/cesium@1.120/Build/Cesium/Cesium.js"></script>
+  <script src="hud.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

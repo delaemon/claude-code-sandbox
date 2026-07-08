@@ -1,0 +1,42 @@
+{
+  "comment": "PLATEAU 3D Tiles streaming URLs (G空間情報センター hosting). If a tileset 404s, grab the current URL from https://www.geospatial.jp/ckan/dataset/plateau — MLIT refreshes datasets yearly. heightOffsetM compensates for the ~37 m geoid/ellipsoid gap over Tokyo when no terrain is loaded.",
+  "defaultHeightOffsetM": 36.7,
+  "tilesets": [
+    {
+      "id": "shibuya",
+      "label": "渋谷区 (LOD2)",
+      "url": "https://plateau.geospatial.jp/main/data/3d-tiles/bldg/13100_tokyo/13113_shibuya-ku/notexture/tileset.json",
+      "enabledByDefault": true
+    },
+    {
+      "id": "minato",
+      "label": "港区 (LOD2)",
+      "url": "https://plateau.geospatial.jp/main/data/3d-tiles/bldg/13100_tokyo/13103_minato-ku/notexture/tileset.json",
+      "enabledByDefault": false
+    },
+    {
+      "id": "shinjuku",
+      "label": "新宿区 (LOD2)",
+      "url": "https://plateau.geospatial.jp/main/data/3d-tiles/bldg/13100_tokyo/13104_shinjuku-ku/notexture/tileset.json",
+      "enabledByDefault": false
+    },
+    {
+      "id": "chiyoda",
+      "label": "千代田区 (LOD2)",
+      "url": "https://plateau.geospatial.jp/main/data/3d-tiles/bldg/13100_tokyo/13101_chiyoda-ku/notexture/tileset.json",
+      "enabledByDefault": false
+    },
+    {
+      "id": "chuo",
+      "label": "中央区 (LOD2)",
+      "url": "https://plateau.geospatial.jp/main/data/3d-tiles/bldg/13100_tokyo/13102_chuo-ku/notexture/tileset.json",
+      "enabledByDefault": false
+    },
+    {
+      "id": "meguro",
+      "label": "目黒区 (LOD2)",
+      "url": "https://plateau.geospatial.jp/main/data/3d-tiles/bldg/13100_tokyo/13110_meguro-ku/notexture/tileset.json",
+      "enabledByDefault": false
+    }
+  ]
+}
