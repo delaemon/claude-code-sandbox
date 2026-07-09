@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>羽田フライトレーダー — 半径100km</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>羽田フライトレーダー <span class="sub">半径100km・毎秒更新</span></h1>
+    <div class="tiles">
+      <div class="tile"><span class="tile-label">航空機</span><span class="tile-value" id="stat-count">–</span></div>
+      <div class="tile"><span class="tile-label">最終更新</span><span class="tile-value" id="stat-updated">–</span></div>
+      <div class="tile"><span class="tile-label">データ源</span><span class="tile-value" id="stat-source">–</span></div>
+      <div class="tile status" id="stat-status"><span class="dot"></span><span id="stat-status-text">接続中…</span></div>
+    </div>
+  </header>
+
+  <main>
+    <div id="map">
+      <div id="map-placeholder">地図を読み込んでいます…</div>
+    </div>
+
+    <aside id="sidebar">
+      <div class="legend">
+        <div class="legend-title">高度</div>
+        <div class="legend-row"><span class="swatch" style="background:#898781"></span>地上</div>
+        <div class="legend-row"><span class="swatch" style="background:#86b6ef"></span>〜1,000 m</div>
+        <div class="legend-row"><span class="swatch" style="background:#5598e7"></span>〜3,000 m</div>
+        <div class="legend-row"><span class="swatch" style="background:#2a78d6"></span>〜6,000 m</div>
+        <div class="legend-row"><span class="swatch" style="background:#1c5cab"></span>〜9,000 m</div>
+        <div class="legend-row"><span class="swatch" style="background:#0d366b"></span>9,000 m〜</div>
+      </div>
+      <table id="ac-table">
+        <thead>
+          <tr><th>便名</th><th class="num">高度(m)</th><th class="num">速度(km/h)</th><th class="num">距離(km)</th></tr>
+        </thead>
+        <tbody id="ac-tbody"></tbody>
+      </table>
+    </aside>
+  </main>
+
+  <!-- Google Maps APIキーが未設定のときに表示 -->
+  <div id="key-panel" hidden>
+    <div class="key-card">
+      <h2>Google Maps APIキーが必要です</h2>
+      <p>このサイトはGoogleマップに航空機を描画します。<a href="https://developers.google.com/maps/documentation/javascript/get-api-key?hl=ja" target="_blank" rel="noopener">Maps JavaScript APIのキーを取得</a>して、以下のいずれかで設定してください。</p>
+      <ol>
+        <li>サーバー側:環境変数 <code>GOOGLE_MAPS_API_KEY</code> を設定して起動</li>
+        <li>URLパラメータ:<code>?key=あなたのキー</code> を付けてアクセス</li>
+        <li>下の入力欄に貼り付け(このブラウザにのみ保存されます)</li>
+      </ol>
+      <div class="key-input-row">
+        <input type="text" id="key-input" placeholder="AIza...">
+        <button id="key-save">保存して表示</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
