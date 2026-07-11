@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="サーバー不要・広告なしのP2Pチャット&通話アプリ">
+  <title>P2P Talk — 広告なしのチャット&通話</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- シグナリング(接続のきっかけ作り)にのみ PeerJS の無料公開サーバーを利用。
+       チャット・音声・映像のデータはすべてブラウザ間で直接(P2P)やり取りされる。 -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+  <div id="app">
+
+    <!-- ===== ヘッダー:自分のID ===== -->
+    <header>
+      <h1>P2P Talk</h1>
+      <div class="my-id-box">
+        <span class="label">あなたのID</span>
+        <code id="my-id">取得中…</code>
+        <button id="copy-id" title="IDをコピー">コピー</button>
+      </div>
+      <div id="status" class="status">シグナリングサーバーに接続中…</div>
+    </header>
+
+    <!-- ===== 接続パネル ===== -->
+    <section id="connect-panel" class="panel">
+      <h2>相手とつながる</h2>
+      <p class="hint">相手に自分のIDを(メール・SMSなどで)伝えるか、相手のIDを入力してください。</p>
+      <div class="row">
+        <input id="remote-id-input" type="text" placeholder="相手のIDを入力" autocomplete="off" spellcheck="false">
+        <button id="connect-btn" class="primary">接続</button>
+      </div>
+    </section>
+
+    <!-- ===== チャット ===== -->
+    <section id="chat-panel" class="panel hidden">
+      <div class="chat-header">
+        <span id="peer-name">相手: —</span>
+        <div class="call-buttons">
+          <button id="voice-call-btn" title="音声通話">📞 通話</button>
+          <button id="video-call-btn" title="ビデオ通話">🎥 ビデオ</button>
+          <button id="disconnect-btn" title="切断">切断</button>
+        </div>
+      </div>
+
+      <div id="messages" class="messages"></div>
+
+      <form id="chat-form" class="row">
+        <input id="chat-input" type="text" placeholder="メッセージを入力" autocomplete="off">
+        <button type="submit" class="primary">送信</button>
+      </form>
+    </section>
+
+    <!-- ===== 通話中パネル ===== -->
+    <section id="call-panel" class="panel hidden">
+      <div class="videos">
+        <video id="remote-video" autoplay playsinline></video>
+        <video id="local-video" autoplay playsinline muted></video>
+      </div>
+      <audio id="remote-audio" autoplay></audio>
+      <div class="call-controls">
+        <span id="call-status">通話中</span>
+        <button id="mute-btn">🎙️ ミュート</button>
+        <button id="hangup-btn" class="danger">📵 終了</button>
+      </div>
+    </section>
+
+    <!-- ===== 着信ダイアログ ===== -->
+    <div id="incoming-dialog" class="dialog hidden">
+      <div class="dialog-body">
+        <p id="incoming-text">着信があります</p>
+        <div class="row center">
+          <button id="answer-btn" class="primary">応答</button>
+          <button id="reject-btn" class="danger">拒否</button>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <p>データはすべて端末間で直接やり取りされ、サーバーには保存されません。</p>
+    </footer>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
