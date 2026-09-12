@@ -168,9 +168,16 @@ else
   ok "record-subagent keeps known values and only unknown field names"
 fi
 
+# The probes above must leave the real logs untouched. Asserting it here means a
+# future probe that forgets one of the hook output paths is caught, rather than
+# discovered as stray rows in a committed file.
+prod_before=$(cat "$repo/audit_log/turns.jsonl" 2>/dev/null | cksum)
+
 usage_log="$repo/audit_log/usage.md"
 probe=$(mktemp); printf '{"type":"user"}\n' > "$probe"
+turns_log="$repo/audit_log/turns.jsonl"
 before=$(cat "$usage_log" 2>/dev/null | cksum)
+turns_before=$(cat "$turns_log" 2>/dev/null | cksum)
 printf '%s' "{\"session_id\":\"doctor-probe\",\"transcript_path\":\"$probe\"}" \
   | bash "$repo/.claude/hooks/log-usage.sh" >/dev/null 2>&1
 after=$(cat "$usage_log" 2>/dev/null | cksum)
@@ -183,10 +190,16 @@ rm -f "$probe"
 # it is asserted rather than assumed.
 real_t=$(ls -t "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1)
 if [ -n "$real_t" ]; then
-  probe_log=$(mktemp)
+  # Every output path the hook writes has to be redirected, not just the one
+  # that existed when the probe was written. It gained turns.jsonl and this
+  # probe left a `ctx-prob` row in the real one -- the same contamination that
+  # was fixed for usage.md, repeated because the redirect was per-file.
+  probe_dir=$(mktemp -d)
   emitted=$(printf '{"session_id":"ctx-probe","transcript_path":"%s"}' "$real_t" \
-    | USAGE_LOG="$probe_log" bash "$repo/.claude/hooks/log-usage.sh" 2>/dev/null)
-  rm -f "$probe_log"
+    | USAGE_LOG="$probe_dir/usage.md" TURNS_LOG="$probe_dir/turns.jsonl" \
+      SUBAGENT_CACHE="$probe_dir/cache.json" \
+      bash "$repo/.claude/hooks/log-usage.sh" 2>/dev/null)
+  rm -rf "$probe_dir"
   if printf '%s' "$emitted" | node -e '
       let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
         const c=JSON.parse(s).hookSpecificOutput;
@@ -203,7 +216,9 @@ if [ -n "$real_t" ]; then
   fi
 fi
 
-if [ "$before" = "$after" ] && ! grep -q 'doctor-p' "$usage_log" 2>/dev/null; then
+turns_after=$(cat "$turns_log" 2>/dev/null | cksum)
+if [ "$before" = "$after" ] && [ "$turns_before" = "$turns_after" ] \
+   && ! grep -q 'doctor-p' "$usage_log" 2>/dev/null; then
   ok "log-usage records nothing when it cannot measure"
 else
   bad "log-usage wrote a row for a session it could not measure"
@@ -213,6 +228,13 @@ fi
 # it simply never loads, and the session runs without the agent it thought it
 # had. Same for a slash command. Both are exactly the quiet-failure shape this
 # repository exists to refuse, so both are parsed here.
+prod_after=$(cat "$repo/audit_log/turns.jsonl" 2>/dev/null | cksum)
+if [ "$prod_before" = "$prod_after" ]; then
+  ok "doctor probes leave the real turn log alone"
+else
+  bad "a doctor probe wrote into audit_log/turns.jsonl"
+fi
+
 echo
 echo "agents and commands"
 for f in .claude/agents/*.md; do

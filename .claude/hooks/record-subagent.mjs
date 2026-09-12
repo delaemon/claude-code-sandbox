@@ -22,6 +22,18 @@
 // field exists is not knowing what it holds, and export.py cannot be pointed at
 // it until its value has been compared against what the glob finds. A path
 // carries no conversation text, so recording it is safe in a public log.
+//
+// That comparison has now been made, and it says NOT to point export.py here.
+// The first recorded value named
+//   .../<session>/subagents/agent-<agent_id>.jsonl
+// which is exactly the shape the glob looks for and is derivable from agent_id
+// alone -- and the file did not exist, anywhere. The six transcripts the glob
+// does find are all older, from runs that wrote one. So this field names where a
+// transcript would go, not where one is: some subagents finish without leaving
+// a file. It could augment the glob; it cannot replace it, and export.py keeps
+// globbing.
+//
+// Recorded because the shapes matching was nearly taken for agreement.
 import fs from "node:fs";
 import path from "node:path";
 

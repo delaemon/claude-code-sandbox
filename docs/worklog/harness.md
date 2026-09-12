@@ -248,3 +248,40 @@ actually solves the original problem and appears nowhere in the reference.
 The glob is still there. One observation is enough to know the field exists and
 not enough to depend on it; the next run that produces a second row is what
 would justify rewriting `find_transcripts`.
+
+## 2026-09-12T22:30Z — the field that was going to retire the glob, and does not
+
+**Tokens**: ~60,000. Session total ~7,500,000.
+
+`agent_transcript_path` was promoted to a known field so its value could be
+compared against what `audit_log/export.py` finds by globbing. The comparison
+was the whole point of promoting it, and it came out the other way.
+
+The first recorded value:
+
+```
+/root/.claude/projects/-home-user-claude-code-sandbox/<session>/subagents/agent-ae497dfcef7e93102.jsonl
+```
+
+- the **shape matches** the glob exactly, `*/*/subagents/agent-*.jsonl`
+- it is **derivable from `agent_id`** alone, so it carries no new information
+- **the file does not exist**, and `find` over the whole config directory does
+  not turn it up
+
+The six files the glob does find are all older, from the multi-agent runs
+earlier in the session. The four `SubagentStop` payloads recorded since carry
+ids with no file behind any of them.
+
+So the field names **where a transcript would go, not where one is**. Some
+subagents finish without leaving a file, and a `find_transcripts` built on this
+would return paths that cannot be read — strictly worse than the glob, which at
+least only returns files that exist.
+
+`export.py` keeps globbing. The field stays recorded: it is still the only
+evidence of what the harness actually sends, and the published reference still
+does not name it.
+
+**The near-miss worth keeping.** The previous entry, and the body of PR #10,
+treated shape agreement as the likely answer — "the structure matches" was
+written before anything was read off disk. Two paths having the same shape says
+nothing about either existing. Checking took one `fs.existsSync`.
