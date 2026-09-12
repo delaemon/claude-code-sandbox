@@ -39,3 +39,20 @@ jobs:
       - name: Environment contract
         working-directory: .
         run: bash scripts/doctor.sh
+
+      # What this change does to the agent's own behaviour, written to the run
+      # summary so it is on the checks page rather than buried in a log. It
+      # fails only when a guard is weaker than on the base — adding one never
+      # blocks. Needs the base branch, which the default checkout does not
+      # fetch.
+      - name: Fetch base for comparison
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        run: git fetch --no-tags --depth=50 origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+
+      - name: Agent behaviour review
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        run: |
+          bash scripts/agent-config-diff.sh "${{ github.base_ref }}" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "${PIPESTATUS[0]}"

@@ -95,6 +95,26 @@ Follow from this when adding to the harness:
 - **Add a case to `doctor.sh`** for anything new that could differ between the
   two.
 
+### Changes to the agent's own behaviour
+
+`.claude/`, `CLAUDE.md`, `scripts/`, `.github/`, `.devcontainer/` and
+`docs/worklog/CONTRACT.md` decide what the agent may do and what the next
+session believes. `scripts/agent-config-diff.sh` reports every change to them
+into the pull request's summary, so merging one unknowingly is not possible.
+
+It **fails only when a guard is weaker than on the base** — a broad new
+permission, a hook unwired or deleted, `bypassPermissions`, a deny rule gone,
+or the secret guard no longer refusing `.env`. Adding a guard never blocks. The
+asymmetry is deliberate: legitimate changes to these files are constant, and a
+check that fails on all of them gets ignored.
+
+The weakening checks compare **effective state and behaviour, never diff
+lines**. The first version matched removed lines and failed on its own hooks,
+because rewriting a hook deletes every line it then re-adds — a rewrite that
+kept every protection looked identical to one that dropped them. Asking "is
+`.env` still refused?" has no such failure mode, and catches a guard quietly
+hollowed out, which no textual check can.
+
 ## Branch and PR workflow
 
 `puyo-puyo-web` is a long-lived integration branch and **the end of the line**.

@@ -1,0 +1,16 @@
+# Who owns the files that decide how the agent behaves.
+#
+# This is documentation, not enforcement. Requiring a CODEOWNERS review would
+# deadlock a single-maintainer repository — GitHub does not let you approve your
+# own pull request — so nothing here blocks a merge. What blocks is the
+# "Agent behaviour review" step in CI, and only when a guard gets weaker.
+#
+# The value of this file is that the list exists in one place and a reviewer can
+# see, from the PR's file list alone, that a change reaches past the game.
+
+/.claude/                   @delaemon
+/CLAUDE.md                  @delaemon
+/scripts/                   @delaemon
+/.github/                   @delaemon
+/.devcontainer/             @delaemon
+/docs/worklog/CONTRACT.md   @delaemon
