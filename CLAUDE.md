@@ -113,6 +113,11 @@ it and merged back by pull request.
 - When the base advances, bring it in with `git merge puyo-puyo-web`. Do **not**
   rebase: session branches are already pushed, and rewriting their history
   breaks any checkout that has them.
+- **Once your PR is merged, the branch is finished.** Re-cut it from the base
+  before doing anything else — `git fetch origin puyo-puyo-web && git checkout
+  -B <branch> origin/puyo-puyo-web` — rather than committing on top of the
+  merged tip. `scripts/doctor.sh` fails when every commit on the branch is
+  already in the base, which is exactly that state.
 - Because nothing leaves this branch, changes on it carry no consequence
   anywhere else.
 
