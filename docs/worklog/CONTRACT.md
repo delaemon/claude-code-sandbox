@@ -91,3 +91,49 @@ be tested without a clock, the same way `resolve` is tested without a board.
 
 Also open: `npm audit` reports 2 moderate transitive advisories. Left alone —
 `audit fix --force` would take a breaking major bump for a dev-only toolchain.
+
+---
+
+# Round 2
+
+## Decided: the hidden row does not pop
+
+Round 1 handed this decision here rather than letting it be made by accident.
+**A puyo sitting in the hidden row (row 0) does not pop and does not join a
+group.** This is the real game's rule, and getting it wrong produces a game that
+passes every test and still feels broken.
+
+It is added to `resolve` as an explicit, general option, not a special case:
+
+```ts
+resolve(board, { hiddenRows?: number })   // default 0
+```
+
+`hiddenRows` is how many rows at the top are excluded from popping. The default
+stays 0 so the existing rule tests keep testing the rule on any board they like;
+the game layer passes `HIDDEN_ROWS`. The decision is then visible at the call
+site instead of buried in the rule.
+
+## File ownership
+
+| Agent | Owns |
+|-------|------|
+| **game** | `puyopuyo/src/game/`, `puyopuyo/tests/game/`, and `puyopuyo/src/core/resolve.ts` (for the `hiddenRows` option only) |
+| **score** | `puyopuyo/src/score/`, `puyopuyo/tests/score/` |
+
+Nothing else in `src/core/` changes. Rendering and real input are out of scope
+again this round — they land once the reducer's shape is settled.
+
+## Frozen interface
+
+- Time is an **input, not a clock**. The reducer is
+  `step(state, input) -> state` where an input is a player action *or* a tick
+  carrying elapsed milliseconds. Nothing in `src/game/` may read
+  `Date.now`, `performance.now`, `setTimeout` or `requestAnimationFrame`; the
+  browser loop feeds ticks in from outside. This is what lets the loop be tested
+  without a clock, the same way `resolve` is tested without a canvas.
+- Randomness is **injected**: the piece queue takes an `rng: () => number`. No
+  `Math.random` inside `src/game/`. Tests pass a seeded generator.
+- Scoring is a **pure function over `ResolveResult`**, which already carries the
+  inputs it needs (`chain`, `cleared`, `colors` per step). It imports from
+  `src/core/` and knows nothing about game state.
