@@ -27,7 +27,10 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const LOG = process.env.USAGE_LOG || "audit_log/usage.md";
+// Staged like the turn log. This one is rewritten rather than appended, and
+// changes only when the rounded row moves -- but "rarely" is not "never", and
+// every one of those changes was a loop iteration.
+const LOG = process.env.USAGE_LOG || "audit_log/.usage-pending.md";
 // Staged outside git, not written straight into the tracked log.
 //
 // A tracked file that changes every turn has no quiet state: committing it runs
@@ -150,15 +153,26 @@ process.stdin.on("data", (d) => (raw += d)).on("end", () => {
 
   const sub = subagentTotals();
 
-  // Delta since the previous turn of this session, from the append-only log.
+  // Delta since the previous turn of this session.
+  //
+  // Read the staged file first, then the tracked one: folding empties the
+  // staging file, so looking only there reported `first` after every real
+  // commit -- the delta reset itself exactly when work was being done, which is
+  // when it matters most.
   let previous = null;
-  try {
-    const lines = fs.readFileSync(TURNS, "utf8").trim().split("\n");
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const row = JSON.parse(lines[i]);
-      if (row.session === session) { previous = row; break; }
-    }
-  } catch { /* first turn */ }
+  const findPrevious = (file) => {
+    try {
+      const lines = fs.readFileSync(file, "utf8").trim().split("\n");
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (!lines[i].trim()) continue;
+        const row = JSON.parse(lines[i]);
+        if (row.session === session) return row;
+      }
+    } catch { /* absent or unreadable */ }
+    return null;
+  };
+  previous = findPrevious(TURNS)
+    ?? findPrevious(path.join(path.dirname(TURNS), "turns.jsonl"));
   const delta = previous ? u.tokens - previous.tokens : null;
 
   const line = `[tok] turn ${delta === null ? "first" : "+" + n(delta)}`
@@ -196,9 +210,15 @@ process.stdin.on("data", (d) => (raw += d)).on("end", () => {
   ];
   const row = `| \`${session}\` | ~${n(round(u.calls, 500))} `
             + `| ~${n(round(u.tokens, 500000))} | ${new Date().toISOString().slice(0, 10)} |`;
+  // Rows come from the staged file if it has any, otherwise from the tracked
+  // log, so a summary staged before a fold does not lose the other sessions.
   let body = [];
+  const source = (() => {
+    try { if (fs.readFileSync(LOG, "utf8").includes("| `")) return LOG; } catch {}
+    return "audit_log/usage.md";
+  })();
   try {
-    body = fs.readFileSync(LOG, "utf8").split("\n")
+    body = fs.readFileSync(source, "utf8").split("\n")
              .filter((l) => l.startsWith("| `") && !l.startsWith(`| \`${session}\` |`));
   } catch { /* first write */ }
   body.push(row);

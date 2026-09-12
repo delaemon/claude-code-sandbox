@@ -171,20 +171,70 @@ fi
 # The probes above must leave the real logs untouched. Asserting it here means a
 # future probe that forgets one of the hook output paths is caught, rather than
 # discovered as stray rows in a committed file.
+# Every hook must write only to staged paths, never to a tracked log. Fixing
+# one of two writers reads as fixed until the other fires -- turns.jsonl was
+# staged while subagents.jsonl kept dirtying the tree on its own.
+#
+# Asserted by behaviour, not by grep: log-usage.mjs legitimately *reads*
+# audit_log/usage.md to carry other sessions' rows forward, and a textual check
+# called that a write. Fire each hook with every staging path redirected, then
+# require the tracked logs to be untouched.
+stage=$(mktemp -d)
+tracked_before=$(cat "$repo"/audit_log/turns.jsonl "$repo"/audit_log/subagents.jsonl \
+                     "$repo"/audit_log/usage.md 2>/dev/null | cksum)
+real_t=$(ls -t "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1)
+if [ -n "$real_t" ]; then
+  printf '{"session_id":"stageprobe","transcript_path":"%s"}' "$real_t" \
+    | USAGE_LOG="$stage/u.md" TURNS_LOG="$stage/t.jsonl" SUBAGENT_CACHE="$stage/c.json" \
+      bash "$repo/.claude/hooks/log-usage.sh" >/dev/null 2>&1
+fi
+printf '{"session_id":"stageprobe","agent_id":"probe"}' \
+  | SUBAGENT_INDEX="$stage/s.jsonl" bash "$repo/.claude/hooks/record-subagent.sh" >/dev/null 2>&1
+tracked_after=$(cat "$repo"/audit_log/turns.jsonl "$repo"/audit_log/subagents.jsonl \
+                    "$repo"/audit_log/usage.md 2>/dev/null | cksum)
+rm -rf "$stage"
+if [ "$tracked_before" = "$tracked_after" ]; then
+  ok "hooks write only staged logs, never the tracked ones"
+else
+  bad "a hook wrote into a tracked log — the working tree dirties every turn again"
+fi
+
 prod_before=$(cat "$repo/audit_log/turns.jsonl" 2>/dev/null | cksum)
 
 usage_log="$repo/audit_log/usage.md"
-probe=$(mktemp); printf '{"type":"user"}\n' > "$probe"
-turns_log="$repo/audit_log/turns.jsonl"
-before=$(cat "$usage_log" 2>/dev/null | cksum)
-turns_before=$(cat "$turns_log" 2>/dev/null | cksum)
-printf '%s' "{\"session_id\":\"doctor-probe\",\"transcript_path\":\"$probe\"}" \
-  | bash "$repo/.claude/hooks/log-usage.sh" >/dev/null 2>&1
-after=$(cat "$usage_log" 2>/dev/null | cksum)
-rm -f "$probe"
-# The hook truncates the session id to 8 characters, so the row would read
-# `doctor-p`. Grepping for the full name would never match and the assertion
-# would be dead — it was, on the first try.
+# A transcript with no usage records must produce no row at all. Checked
+# against the STAGED paths, because the hook no longer writes the tracked ones
+# -- when staging was introduced this check kept comparing the tracked files,
+# which by then never changed either way, and it passed against a hook with the
+# guard deleted. The eval suite caught that; it is why the probe below asserts a
+# positive first.
+probe_stage=$(mktemp -d)
+real_probe=$(ls -t "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1)
+empty_probe="$probe_stage/empty.jsonl"; printf '{"type":"user"}\n' > "$empty_probe"
+run_probe() {
+  printf '{"session_id":"doctor-probe","transcript_path":"%s"}' "$1" \
+    | USAGE_LOG="$probe_stage/u.md" TURNS_LOG="$probe_stage/t.jsonl" \
+      SUBAGENT_CACHE="$probe_stage/c.json" \
+      bash "$repo/.claude/hooks/log-usage.sh" 2>/dev/null
+}
+# Positive first: a real transcript must produce a row, or "no row" below proves
+# nothing about the guard.
+if [ -n "$real_probe" ]; then
+  run_probe "$real_probe" >/dev/null
+  if [ ! -s "$probe_stage/t.jsonl" ]; then
+    bad "log-usage wrote nothing for a readable transcript — the probe is inert"
+  else
+    : > "$probe_stage/t.jsonl"; rm -f "$probe_stage/u.md"
+    run_probe "$empty_probe" >/dev/null
+    if [ -s "$probe_stage/t.jsonl" ] || [ -s "$probe_stage/u.md" ]; then
+      bad "log-usage recorded a session it could not measure"
+    else
+      ok "log-usage records nothing when it cannot measure"
+    fi
+  fi
+fi
+rm -rf "$probe_stage"
+
 # Exit 0 carries a structured channel: JSON on stdout, whose additionalContext
 # reaches the next turn. It is the reason the usage line costs no tool call, so
 # it is asserted rather than assumed.
@@ -216,13 +266,6 @@ if [ -n "$real_t" ]; then
   fi
 fi
 
-turns_after=$(cat "$turns_log" 2>/dev/null | cksum)
-if [ "$before" = "$after" ] && [ "$turns_before" = "$turns_after" ] \
-   && ! grep -q 'doctor-p' "$usage_log" 2>/dev/null; then
-  ok "log-usage records nothing when it cannot measure"
-else
-  bad "log-usage wrote a row for a session it could not measure"
-fi
 
 # A subagent definition with broken or missing frontmatter does not error --
 # it simply never loads, and the session runs without the agent it thought it

@@ -40,7 +40,9 @@ happening again.
 | 22 | The churn check compared two `cksum` reads of a file that did not exist, and two empty strings compare equal | `scripts/churn-check.mjs` | yes |
 | 23 | `mutate.mjs` decided "killed" by matching raw vitest output, which is coloured in CI and not locally, so every mutant passed here and the first reported BROKEN there — a verdict that depended on where it ran | `scripts/mutate.mjs` | yes |
 | 24 | That BROKEN message named two guesses and printed no output, so the CI failure it reported could not be diagnosed from the log | `scripts/mutate.mjs` | yes |
-| 25 | Committing the per-turn log ran CI, whose completion sent a PR notification, which woke a turn, which appended another line — a loop sustaining itself about once a minute with no input | `scripts/fold-turns.mjs` | observed live |
+| 25 | Committing the per-turn log ran CI, whose completion sent a PR notification, which woke a turn, which appended another line — a loop sustaining itself about once a minute with no input | `scripts/fold-logs.mjs` | observed live |
+| 26 | Only one of the two hooks that write logs was staged, so `subagents.jsonl` kept dirtying the tree by itself — one writer fixed reads as fixed until the other fires | `hooks write only staged logs` | yes |
+| 27 | Staging the logs silently disabled the check that the hook records nothing it cannot measure: it compared tracked files the hook had stopped writing, so it passed with the guard deleted | `log-usage records nothing` | yes |
 
 ## Closed since, and how
 
@@ -105,13 +107,38 @@ asks, the ask wakes a turn, the turn writes another line. Any tracked file that
 changes every turn has no quiet state.
 
 So the source is cut instead. The hook writes to `audit_log/.turns-pending.jsonl`,
-which git ignores, and `scripts/fold-turns.mjs` moves those lines into the
+which git ignores, and `scripts/fold-logs.mjs` moves those lines into the
 tracked log. `gates.sh` calls it, and gates run before every real commit here, so
 the lines land with the work rather than alone. A turn that does nothing else
 now leaves the tree clean and starts nothing.
 
-Verified in eight cases, including that a fold which cannot write exits 1 and
+**26 is the half of 25 that was missed.** `turns.jsonl` was staged and the tree
+still dirtied every time a subagent finished, because `record-subagent.sh` wrote
+straight into `subagents.jsonl`. `usage.md` was the same, less often. All three
+are staged now and `scripts/fold-logs.mjs` folds them together.
+
+`doctor.sh` asserts it by **behaviour rather than by grep**: a textual check was
+written first and called `log-usage.mjs` a violator for *reading*
+`audit_log/usage.md`, which it does legitimately to carry other sessions' rows
+forward. The check fires each hook with its staging paths redirected and
+requires the tracked logs to be byte-identical afterwards.
+
+Verified in nine cases, including that a fold which cannot write exits 1 and
 leaves the lines staged rather than reporting a fold that did not happen.
+
+**27 is the cost of 25 and 26, and the eval suite is what charged it.** Moving
+the hooks to staged paths left `doctor.sh` comparing tracked files that the
+hooks no longer touch — so the check for "records nothing it cannot measure"
+compared two things that never changed, and passed against a hook with that
+guard deleted. `evals/run.sh` replayed ledger row 7 and reported it NOT CAUGHT,
+which is the suite doing precisely the job it was built for: a check can be
+disabled by a change somewhere else entirely, and only replaying the original
+failure notices.
+
+The check reads the staged paths now, and asserts a positive first: a readable
+transcript must produce a row before "no row" from an unmeasurable one means
+anything. Verified both ways — the guard deleted fails it, and a hook that
+writes nothing at all fails it as *inert* rather than passing.
 
 **An estimate that was accurate and irrelevant.** Excluding `audit_log` from CI
 had been raised once before and dropped, because Actions minutes are free for a

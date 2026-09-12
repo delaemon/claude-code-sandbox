@@ -37,7 +37,10 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const OUT = process.env.SUBAGENT_INDEX || "audit_log/subagents.jsonl";
+// Staged, not written into the tracked log. See scripts/fold-logs.mjs: a hook
+// that dirties a tracked file every time it fires closes a loop through either
+// the commit or the reminder to make one.
+const OUT = process.env.SUBAGENT_INDEX || "audit_log/.subagents-pending.jsonl";
 
 let raw = "";
 process.stdin.on("data", (d) => (raw += d)).on("end", () => {

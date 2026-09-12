@@ -11,5 +11,7 @@ __pycache__/
 
 .env
 
-# Staged per-turn usage, folded into audit_log/turns.jsonl by scripts/fold-turns.mjs
+# Staged hook output, folded into the tracked logs by scripts/fold-logs.mjs
 audit_log/.turns-pending.jsonl
+audit_log/.subagents-pending.jsonl
+audit_log/.usage-pending.md
