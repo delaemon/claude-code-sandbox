@@ -1,6 +1,6 @@
 # Run index
 
-Regenerated in full by `audit_log/export.py`. Last run 2026-09-12 12:14:42Z.
+Regenerated in full by `audit_log/export.py`. Last run 2026-09-12 22:10:13Z.
 
 | agent | lines | tool calls | tokens | redactions | started | opening text |
 |---|---|---|---|---|---|---|

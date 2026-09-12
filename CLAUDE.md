@@ -41,10 +41,10 @@ hard to test is pushed outward, and `main.ts` absorbs all of it.**
 | `src/render/` | Geometry and drawing. Takes state and a context. |
 | `src/main.ts` | **The only file that may read a clock or generate randomness.** |
 
-Keep that boundary. It is why 190 tests run with no clock and nothing flakes,
-and `grep` for `Date.now`, `performance.now`, `setTimeout`,
-`requestAnimationFrame` or `Math.random` outside `main.ts` is the check that it
-still holds.
+Keep that boundary. It is why the whole suite runs with no clock and nothing
+flakes, and `scripts/clock-boundary.mjs` is what holds it — it strips comments
+first, because several files describe the rule in prose, and it refuses to
+report a pass when `main.ts` no longer matches its pattern.
 
 Two conventions worth repeating because getting them wrong fails quietly:
 
@@ -75,14 +75,11 @@ Everything that makes the flow work is committed, so neither environment needs
 setting up by hand: `.claude/` carries the hooks and settings, `.devcontainer/`
 carries the container, and `.github/workflows/` carries CI.
 
-**`bash scripts/doctor.sh` checks that the environment you are in actually
-satisfies those assumptions.** It reports the toolchain, then runs each hook and
-asserts its exit code, because a hook that works in one environment and quietly
-does nothing in the other is the failure mode that matters here — and one that
-has already happened: the hooks once parsed their input with `python3`, which
-the cloud image has and a container need not, and on a host without it the
-secret guard exited 0 and let `.env` through. CI runs `doctor.sh` too, so drift
-is caught rather than discovered.
+**`bash scripts/gates.sh` is the one command for "is this ready to push"** —
+typecheck, tests, `doctor.sh`, the ledger and the config review. `doctor.sh`
+runs each hook and asserts its exit code, because a hook that works in one
+environment and quietly does nothing in the other is the failure that matters
+here. CI runs both, so drift is caught rather than discovered.
 
 Follow from this when adding to the harness:
 
@@ -95,74 +92,57 @@ Follow from this when adding to the harness:
 - **Add a case to `doctor.sh`** for anything new that could differ between the
   two.
 
+### The harness checks itself
+
+`bash scripts/gates.sh` is the single verdict, and two of its gates are about
+the harness rather than the game:
+
+- **`evals/run.sh`** replays every failure `docs/LEDGER.md` claims is caught.
+  Each case breaks something in a throwaway copy and asserts the named check
+  fails, **having first required it to pass** — without that, a check already
+  broken for some other reason would report a success it did not earn. The
+  ledger's "verified by breaking" column was a hand-written claim until this
+  existed. **A new check belongs here as a case, not only as a paragraph.**
+- **`scripts/agent-config-diff.sh`** reviews changes to the agent's own
+  configuration, below.
+
+Exit **3 means a check did not run**, and `gates.sh` shows it as a note rather
+than a pass. The config gate returns it when there is no base ref to compare
+against: an ordinary situation, but one that used to print `ok`.
+
 ### Changes to the agent's own behaviour
 
-`.claude/`, `CLAUDE.md`, `scripts/`, `.github/`, `.devcontainer/` and
-`docs/worklog/CONTRACT.md` decide what the agent may do and what the next
-session believes. `scripts/agent-config-diff.sh` reports every change to them
-into the pull request's summary, so merging one unknowingly is not possible.
+Some files here decide what the agent may do and what the next session
+believes. `scripts/agent-config-diff.sh` holds the list, reports every change to
+them into the pull request summary, and **fails only when a guard is weaker than
+on the base** — adding one never blocks. The asymmetry is deliberate: changes to
+these files are constant, and a check that fails on all of them gets ignored.
 
-It **fails only when a guard is weaker than on the base** — a broad new
-permission, a hook unwired or deleted, `bypassPermissions`, a deny rule gone,
-or the secret guard no longer refusing `.env`. Adding a guard never blocks. The
-asymmetry is deliberate: legitimate changes to these files are constant, and a
-check that fails on all of them gets ignored.
-
-The weakening checks compare **effective state and behaviour, never diff
-lines**. The first version matched removed lines and failed on its own hooks,
-because rewriting a hook deletes every line it then re-adds — a rewrite that
-kept every protection looked identical to one that dropped them. Asking "is
-`.env` still refused?" has no such failure mode, and catches a guard quietly
-hollowed out, which no textual check can.
+Its checks compare **effective state and behaviour, never diff lines** — ask "is
+`.env` still refused?", not "was this line removed?". A textual check cannot
+tell a rewrite that kept every protection from one that dropped them, and cannot
+see a guard hollowed out in place. `docs/LEDGER.md` row 4 is what happens
+otherwise. **Write new checks the same way.**
 
 ### Token usage is logged, every session
 
-**What a session or an agent run cost is written alongside the logs, always.**
-This is a standing rule on this branch, not a preference of whoever is working
-today, and it is carried by a hook rather than by this paragraph — for the
-reason stated above, that this file is advisory and a hook is executed.
+**What a session or an agent run cost is written alongside the logs, always** —
+`audit_log/usage.md` (per session, by `hooks/log-usage.sh` on Stop),
+`audit_log/INDEX.md` (per subagent run, by `export.py`), and the `docs/worklog/`
+entry describing the run. One definition throughout: **output + cache writes +
+fresh input**, never cache reads, which would report the context size times the
+turn count rather than the work.
 
-| where | what | written by |
-| --- | --- | --- |
-| `audit_log/usage.md` | one row per session, updated in place, **rounded** | `hooks/log-usage.sh`, on Stop |
-| `audit_log/INDEX.md` | a `tokens` column, one row per subagent run | `audit_log/export.py` |
-| `docs/worklog/*.md` | the cost of the run the entry describes | whoever writes the entry |
+Each file explains its own rounding; `docs/LEDGER.md` rows 6, 12 and 13 carry
+why it is rounded at all. `bash scripts/usage.sh --line` gives exact numbers.
 
-One definition throughout: **output + cache writes + fresh input.** Cache reads
-are excluded deliberately. Every request re-reads the whole context, so
-including them reports the context size multiplied by the turn count — in this
-session, 378 million against 4.9 million of actual work.
+**Never claim to know how much quota is left.** Nothing records it: rate-limit
+state reaches a transcript only on a refusal, never while requests are being
+served. A number invented here would be believed right up until the session
+stopped working. *Nothing enforces this — it is prose, and prose is missed.*
 
-Two things this must never do:
-
-- **Report a session it could not measure as a session that cost nothing.** If
-  the transcript is unreadable or holds no usage records, no row is written at
-  all. `doctor.sh` asserts this by running the hook against a transcript that
-  exists and carries no usage — the first version of that check used a
-  *missing* path, stopped at an earlier guard, and stayed green while the
-  guard it was meant to protect was removed.
-- **Claim to know how much quota is left.** Nothing records it. Rate-limit
-  state appears in a transcript only on a refusal, never while requests are
-  being served, so `scripts/usage.sh` prints the refusals it can see and says
-  remaining is unmeasurable. A number invented here would be believed exactly
-  until the session stopped working.
-
-**The logged figures are rounded on purpose.** Written exactly, `usage.md`
-changed on every stop: a tracked file permanently dirty, and a "commit your
-changes" warning every turn. It bought no durability either — an uncommitted
-row dies with the VM exactly as a missing one does, so only the committed value
-ever mattered. Rounded to 500,000, the file changes about once in fifty
-turns and each change means a real threshold was crossed.
-
-The granularity is measured, not guessed. This session burned 3,000-32,000
-tokens a turn, averaging ~10,000. A first attempt rounded to 10,000 and kept a
-separate output column; output crosses a 10,000 boundary every two or three
-turns, so the warning came straight back. Dropping that column and coarsening
-to 500,000 gives one change per ~15 turns even at the worst rate observed,
-measured by replaying that rate for sixty turns.
-
-`bash scripts/usage.sh --line` prints one line with the delta since the
-previous call, for exact numbers while working.
+That a session which could not be measured is never written as one that cost
+nothing **is** enforced, by `doctor.sh`.
 
 ## Branch and PR workflow
 
@@ -183,10 +163,8 @@ it and merged back by pull request.
   rebase: session branches are already pushed, and rewriting their history
   breaks any checkout that has them.
 - **Once your PR is merged, the branch is finished.** Re-cut it from the base
-  before doing anything else — `git fetch origin puyo-puyo-web && git checkout
-  -B <branch> origin/puyo-puyo-web` — rather than committing on top of the
-  merged tip. `scripts/doctor.sh` fails when every commit on the branch is
-  already in the base, which is exactly that state.
+  rather than committing on top of the merged tip. `scripts/branch-state.sh`
+  detects that state and prints the command; `doctor.sh` fails on it.
 - Because nothing leaves this branch, changes on it carry no consequence
   anywhere else.
 
@@ -208,23 +186,23 @@ background shell commands and running subagents are gone.
 Config here survives a VM reclaim, so behaviour that must hold across sessions
 belongs in these files rather than in a prompt.
 
-- `settings.json` — wires the hooks below, registers the official plugin
-  marketplace, and allowlists `npm`, `pytest`, read-only `git` and common read
-  commands. `npm install` is deliberately absent: pulling an arbitrary package
-  is exactly the moment a prompt is worth paying for.
-- `hooks/session-start.sh` (SessionStart) — installs dependencies so a fresh
-  container is usable immediately.
-- `hooks/block-secrets.sh` (PreToolUse on `Edit|Write|NotebookEdit`) — blocks
-  edits to `.env`, `*.pem`, `*.key` and the session token file. When no JSON
-  parser is available it matches the raw payload instead and still refuses,
-  over-blocking rather than failing open.
-- `hooks/typecheck.sh` (PostToolUse on `Edit|Write`) — runs `npm run typecheck`
-  in `puyopuyo/` after any edit to a `.ts` file there and **exits 2 on type
-  errors**. It exits 0 for other paths, and when `node_modules` is missing, so
-  it can never block work before install.
-- `hooks/log-usage.sh` (Stop) — writes this session's token usage into
-  `audit_log/usage.md`. It **exits 0 on every path**: a Stop hook that blocked
-  could stop a session from ever finishing, which is worse than a missing row.
+`doctor.sh` asserts what each hook *does*, so what follows is only the reasoning
+a check cannot hold:
+
+- `settings.json` allowlists `npm`, `pytest` and read-only commands. **`npm
+  install` is deliberately absent**: pulling an arbitrary package is exactly the
+  moment a prompt is worth paying for.
+- `block-secrets.sh` falls back to matching its raw payload when no JSON parser
+  is available, **over-blocking rather than failing open**.
+- `typecheck.sh` exits 0 when `node_modules` is missing, so it can never block
+  work before install.
+- `log-usage.sh` **exits 0 on every path**. A Stop hook that blocked could stop
+  a session from ever finishing, which is worse than a missing row.
+- `record-subagent.sh` (SubagentStop) writes to `audit_log/subagents.jsonl`. It
+  records the payload's **known fields and the names of the rest**, never the
+  values: the documented schema is incomplete, this repository is public, and an
+  unrecognised field could hold conversation text. It exists to learn the shape
+  from the harness rather than from a document that does not state it.
 
 **Hook contract.** The event arrives as JSON on stdin. **Exit 2 blocks**, on the
 events that support blocking (`PreToolUse`, `UserPromptSubmit`, `Stop`), and the
@@ -236,14 +214,12 @@ and `hookSpecificOutput.additionalContext` reaches the next turn's reasoning —
 supported on `Stop`, `SessionStart`, `UserPromptSubmit` and `PostToolUse`, but
 not `PreToolUse`, which uses `permissionDecision` instead.
 
-This file previously stated that exit 0 could say nothing to Claude, and that
-error had a price: the session-usage line was reported by running a script as a
-tool call every turn, when `log-usage.sh` could return it as `additionalContext`
-for free. **Reach for exit 0 with `additionalContext` first; exit 2 is for
-stopping something, not for being heard.**
+**Reach for exit 0 with `additionalContext` first; exit 2 is for stopping
+something, not for being heard.** Believing otherwise cost a tool call every
+turn — `docs/LEDGER.md` row 8.
 
-A broken hook fails silently, so run a new one by hand against a case it should
-block and one it should allow before committing it.
+A hook that breaks fails silently, so run a new one by hand against a case it
+should block and one it should allow, then give it a `doctor.sh` case.
 
 Prefer a hook over an instruction in this file whenever something must happen
 every time: this file is advisory and can be missed, hooks are executed by the
@@ -253,20 +229,14 @@ harness.
 
 `settings.json` registers `anthropics/claude-plugins-official` via
 `extraKnownMarketplaces` and enables plugins through `enabledPlugins`. **This
-works in cloud sessions**, verified here: the plugin's skills appeared with no
-per-user `claude plugin install`, settling a question the docs answer two
-incompatible ways. A committed `settings.json` is a real distribution channel,
-not just a local-CLI one.
+works in cloud sessions** — verified here, with no per-user `claude plugin
+install`. A committed `settings.json` is a real distribution channel.
 
-Two limits it does not lift. Plugins load at **session start**, so a change
-reaches only the next session, and only if it is on the branch that session
-checks out. And cloud sessions never start plugin language servers.
-
-`pr-review-toolkit` earns its slot because all work here goes through pull
-requests. `typescript-lsp` is enabled for the local case — it gives inline
-diagnostics when the repository is opened on a machine, and is ignored rather
-than broken in the cloud, so one committed config serves both. In a cloud
-session `hooks/typecheck.sh` is what actually catches type errors.
+Two limits it does not lift: plugins load at **session start**, so a change
+reaches only the next session and only on the branch that session checks out;
+and cloud sessions never start plugin language servers, which is why
+`hooks/typecheck.sh` rather than `typescript-lsp` is what catches type errors
+there.
 
 ## CI (`.github/workflows/ci.yml`)
 

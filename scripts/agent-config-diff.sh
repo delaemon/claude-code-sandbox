@@ -34,9 +34,14 @@ base_ref=""
 for candidate in "origin/$base" "$base"; do
   git rev-parse --verify --quiet "$candidate" >/dev/null 2>&1 && { base_ref="$candidate"; break; }
 done
+# Exit 3 -- did not run -- rather than 0. There is nothing wrong with this
+# situation: a checkout without the base ref is ordinary, and failing on it
+# would be noise. But gates.sh printed `ok` for it, so a check that never looked
+# read exactly like a check that looked and found nothing. That is the one thing
+# this repository refuses everywhere else, and the eval suite found it here.
 if [ -z "$base_ref" ]; then
-  echo "No ref for $base, nothing to compare against."
-  exit 0
+  echo "No ref for $base: this check did not run." >&2
+  exit 3
 fi
 
 # A three-dot range needs a merge base, and a shallow clone may not have one.
