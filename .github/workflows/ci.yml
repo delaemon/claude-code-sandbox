@@ -29,3 +29,13 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+
+      # The repository is worked on from a cloud session and from a dev
+      # container, and the flow is only identical if both environments really do
+      # satisfy the same assumptions. doctor.sh asserts them — including running
+      # the hooks and checking their exit codes, since a hook that quietly does
+      # nothing in one environment is the failure this is here to catch. CI is a
+      # third environment, so it is a fair check on the assumptions themselves.
+      - name: Environment contract
+        working-directory: .
+        run: bash scripts/doctor.sh
