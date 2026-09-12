@@ -148,3 +148,92 @@ someone who was not there.
 So: **append the log entry at the moment you make the decision.** A log written
 last is the first thing an interruption takes, and it is the only part that
 cannot be recovered from the artefact — code states what, never why.
+
+---
+
+# Round 3 — making it playable
+
+Rendering and browser input. No game rules are written this round: if you find
+yourself deciding what the game does rather than how it looks or how a key maps
+to an action, you are in the wrong layer — say so in your log instead.
+
+## File ownership
+
+| Agent | Owns |
+|-------|------|
+| **render** | `puyopuyo/src/render/`, `puyopuyo/tests/render/`, `puyopuyo/src/main.ts`, `puyopuyo/index.html`, `puyopuyo/src/style.css` |
+| **input** | `puyopuyo/src/input/`, `puyopuyo/tests/input/` |
+
+Nothing under `src/core/`, `src/game/` or `src/score/` changes. If you believe
+it must, that is a finding for your log, not an edit.
+
+## Where clocks are allowed, and where they are not
+
+This is the boundary the last two rounds were built to protect:
+
+| Layer | May read a clock? |
+|-------|-------------------|
+| `src/core/`, `src/game/`, `src/score/` | **No** — already true, keep it that way |
+| `src/input/` | **No.** Auto-repeat advances via `advance(ms)`, same as the reducer |
+| `src/render/` | Drawing only; takes state and a context, reads no clock |
+| `src/main.ts` | **Yes.** `requestAnimationFrame` and `performance.now` live here and nowhere else |
+
+`main.ts` is the only file in the project that knows what time it is. It turns
+elapsed milliseconds into `tick(ms)` and DOM events into `PlayerAction`s, and
+hands both to `step`.
+
+## Frozen interface — `src/input/`
+
+The render agent codes against this before it exists, so it does not change:
+
+```ts
+import type { PlayerAction } from '../game/index.js';
+
+export interface InputSource {
+  /** Begin listening. */
+  attach(target: EventTarget): void;
+  detach(): void;
+  /** Advance auto-repeat timing. Given the same ms as the game tick. */
+  advance(ms: number): void;
+  /** Take every action produced since the last call, in order, and clear them. */
+  drain(): PlayerAction[];
+}
+
+export function createKeyboardInput(options?: KeyboardOptions): InputSource;
+```
+
+`drain()` returning a queue rather than firing callbacks is deliberate: the
+reducer must see actions in a defined order relative to each tick, and a
+callback fired mid-frame cannot promise that.
+
+Default key map — arrows to move, `z`/`x` to rotate, down to soft drop, space to
+hard drop. Make it overridable; do not invent a different default.
+
+## Frozen interface — `src/render/`
+
+```ts
+export function draw(ctx: CanvasRenderingContext2D, state: GameState, layout: Layout): void;
+```
+
+`draw` is a pure function of its arguments: same state in, same pixels out. It
+must not mutate `state`, hold state of its own between calls, or read a clock —
+animation driven by elapsed time belongs in `main.ts`, passed in.
+
+Geometry (cell size, origin, board rect, next-piece rect) goes in a separate
+module with no canvas import, so it can be tested as arithmetic.
+
+## Testing a layer that draws
+
+Vitest runs in Node, with no canvas and no browser.
+
+- **Geometry**: plain functions, tested directly. This is where the real bugs
+  are — an off-by-one in a row offset draws the hidden row into the playfield.
+- **Drawing**: pass `draw` a fake context object that records the calls made to
+  it, and assert on that record. A fake context is enough to catch "drew 13 rows
+  instead of 12" and "drew the piece at the wrong cell".
+- **Input**: Node 22 has a global `EventTarget`. Construct one, dispatch
+  synthetic key events at it, call `advance(ms)`, and assert on `drain()`. No
+  jsdom needed.
+
+Do not reach for a browser-rendering test this round. `npm run build` succeeding
+plus the tests above is the bar.
