@@ -37,7 +37,7 @@ hard to test is pushed outward, and `main.ts` absorbs all of it.**
 | `src/core/` | Board, gravity, groups, chain resolution. Plain data in and out. No DOM, no timers, no randomness. |
 | `src/game/` | `step(state, input)`. Time arrives as `tick(ms)`; the queue's `rng` is injected. |
 | `src/score/` | Scoring over a `ResolveResult`. Depends on `core` and nothing else. |
-| `src/input/` | Keyboard with DAS/ARR. Auto-repeat advances via `advance(ms)`, never a timer. |
+| `src/input/` | Keyboard with DAS/ARR, and touch gestures. Both advance via `advance(ms)`, never a timer; `combineInputs` presents them to the loop as one. |
 | `src/render/` | Geometry and drawing. Takes state and a context. |
 | `src/main.ts` | **The only file that may read a clock or generate randomness.** |
 
