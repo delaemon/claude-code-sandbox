@@ -105,33 +105,27 @@ Prefer a hook over an instruction in this file when something must happen every
 time: this file is advisory and can be missed, whereas hooks are executed by the
 harness.
 
-### Pending: does `enabledPlugins` reach a cloud session?
+### Committed plugins do load in cloud sessions (verified)
 
-`settings.json` registers the official marketplace via `extraKnownMarketplaces`
-and enables `claude-code-setup@claude-plugins-official`. This is a probe, not a
-dependency — nothing in this repo needs that plugin, and its one skill is
-read-only. It is here to settle a question the docs leave open.
+A probe settled this, since the docs answer it twice and incompatibly:
+`discover-plugins` says to declare a plugin under `enabledPlugins` in
+`.claude/settings.json` when `/plugin` is unavailable, while
+`settings-reference` says that as of v2.1.195 a plugin from an external source
+does not load until each user installs it — and a GitHub-hosted marketplace is
+an external source.
 
-The docs say two things that pull in opposite directions:
+**Result: it loads.** With `extraKnownMarketplaces` registering
+`anthropics/claude-plugins-official` and `enabledPlugins` naming a plugin from
+it, that plugin's skills appeared in a cloud session on this repo with no
+per-user `claude plugin install`. So `.claude/settings.json` is a working
+distribution channel here, not just for local CLI sessions.
 
-- *"declare the plugin under `enabledPlugins` in `.claude/settings.json` for
-  cloud sessions"* — so committing it is the documented route.
-- *"As of v2.1.195, adding the marketplace doesn't install plugins that come
-  from an external source … doesn't load until the team member installs it"* —
-  and a GitHub-hosted marketplace is an external source.
+Two caveats the probe does not cover: plugins load at **session start**, so a
+change only takes effect in the next session, and it must be on the branch that
+session checks out — a plugin added on a session branch does not reach sessions
+cut from `puyo-puyo-web` until it merges. Cloud sessions also don't start plugin
+language servers, so LSP plugins (`typescript-lsp` and friends) are pointless
+here whatever the settings say.
 
-Which one wins in a cloud session can only be observed at session start, so
-**check this at the start of the next session on this repo**:
-
-- **Loaded** — a skill named `claude-code-setup:claude-automation-recommender`
-  appears in the available skills. Committing plugins works here; replace the
-  probe with a plugin that earns its place (`pr-review-toolkit` and
-  `commit-commands` are the plausible candidates for this repo; `typescript-lsp`
-  is not — cloud sessions don't start plugin language servers).
-- **Not loaded** — the plugin is reported as not installed, with a
-  `claude plugin install` command to run. Then committed plugins only reach
-  local CLI sessions, and the two keys should be dropped from `settings.json`
-  rather than left as decoration.
-
-Record the answer here either way and delete this section: an experiment nobody
-wrote down gets run again.
+`pr-review-toolkit` is enabled: this repo's work runs through pull requests
+against `puyo-puyo-web`, so review agents are the plugin that earns its slot.
