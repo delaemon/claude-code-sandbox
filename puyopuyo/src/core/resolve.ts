@@ -35,6 +35,20 @@ export interface ResolveResult {
   readonly totalCleared: number;
 }
 
+export interface ResolveOptions {
+  /**
+   * How many rows at the top of the board are excluded from popping *and*
+   * from group formation. Cells there still fall and still block.
+   *
+   * Default 0, so the rule tests can use any board they like; the game layer
+   * passes `HIDDEN_ROWS`, which makes the decision visible at the call site
+   * (see docs/worklog/CONTRACT.md, "Round 2").
+   */
+  readonly hiddenRows?: number;
+  /** Minimum group size that pops. Default `POP_THRESHOLD` (4). */
+  readonly threshold?: number;
+}
+
 /** Remove every cell listed in `groups`, then let the rest fall. */
 export function popGroups(board: Board, groups: readonly Group[]): Board {
   const next = cloneMutable(board);
@@ -45,6 +59,16 @@ export function popGroups(board: Board, groups: readonly Group[]): Board {
 }
 
 /**
+ * A view of `board` with the top `hiddenRows` rows blanked out. Used only to
+ * *find* groups: popping still happens on the real board, so a hidden cell
+ * neither pops nor glues two visible cells of its colour together.
+ */
+function withoutHiddenRows(board: Board, hiddenRows: number): Board {
+  if (hiddenRows <= 0) return board;
+  return board.map((row, y) => (y < hiddenRows ? row.map(() => null) : row));
+}
+
+/**
  * Settle the board, then repeatedly pop groups of `threshold`+ and settle
  * again, until nothing more pops.
  *
@@ -52,14 +76,23 @@ export function popGroups(board: Board, groups: readonly Group[]): Board {
  * string literal with floating cells behaves like one that was played into
  * that shape. That means `result.board` can differ from the input even when
  * `chainCount` is 0.
+ *
+ * With `hiddenRows > 0` the top rows are inert: cells there fall and block
+ * like any other, but they never pop and never join a group.
  */
-export function resolve(board: Board, threshold: number = POP_THRESHOLD): ResolveResult {
+export function resolve(board: Board, options: ResolveOptions = {}): ResolveResult {
+  const threshold = options.threshold ?? POP_THRESHOLD;
+  const hiddenRows = options.hiddenRows ?? 0;
+  if (!Number.isInteger(hiddenRows) || hiddenRows < 0) {
+    throw new RangeError(`bad hiddenRows: ${hiddenRows}`);
+  }
+
   let current = applyGravity(board);
   const steps: ChainStep[] = [];
   let totalCleared = 0;
 
   for (;;) {
-    const groups = findPoppableGroups(current, threshold);
+    const groups = findPoppableGroups(withoutHiddenRows(current, hiddenRows), threshold);
     if (groups.length === 0) break;
 
     current = popGroups(current, groups);
