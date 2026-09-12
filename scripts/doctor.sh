@@ -81,37 +81,15 @@ fi
 
 echo
 echo "branch"
-# Nothing in this repository notices when a branch's PR has been merged and
-# work carries on top of it anyway. That happened: PR #5 merged at 07:12 and
-# the next commit landed at 07:22 on the pre-merge tip, so it belonged to no
-# open PR and never reached the base. It was harmless only because the merge
-# commit carried an identical tree; with another branch merged in between, the
-# next PR would have proposed undoing it.
-#
-# ahead/behind separates the two cases cleanly. Everything you have already
-# merged (behind, nothing ahead) means start again from the base. Behind with
-# work of your own means the base simply moved.
-base="${DOCTOR_BASE:-puyo-puyo-web}"
-base_ref=""
-for candidate in "origin/$base" "$base"; do
-  git rev-parse --verify --quiet "$candidate" >/dev/null && { base_ref="$candidate"; break; }
-done
-
-if [ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" = "$base" ]; then
-  ok "on $base, the integration branch"
-elif [ -z "$base_ref" ]; then
-  note "no local ref for $base — cannot compare (normal in a CI checkout)"
-else
-  behind=$(git rev-list --count "HEAD..$base_ref" 2>/dev/null || echo 0)
-  ahead=$(git rev-list --count "$base_ref..HEAD" 2>/dev/null || echo 0)
-  if [ "$behind" -eq 0 ]; then
-    ok "up to date with $base_ref ($ahead ahead)"
-  elif [ "$ahead" -eq 0 ]; then
-    bad "every commit here is already in $base_ref, and it has moved $behind ahead — this branch's PR is merged and finished. Re-cut it: git fetch origin $base && git checkout -B \$(git rev-parse --abbrev-ref HEAD) $base_ref"
-  else
-    note "$behind behind $base_ref with $ahead of your own — bring the base in: git merge $base_ref"
-  fi
-fi
+# The rule itself lives in scripts/branch-state.sh, which the SessionStart hook
+# also calls. Two copies of it would eventually disagree, and a rule that
+# contradicts itself is worse than no rule.
+branch_msg=$(bash scripts/branch-state.sh)
+case $? in
+  0) ok "$branch_msg" ;;
+  1) note "$branch_msg" ;;
+  *) bad "$branch_msg" ;;
+esac
 
 echo
 echo "hooks"
