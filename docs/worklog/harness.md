@@ -196,3 +196,28 @@ nothing and the first "no churn" result was measuring an empty file. Re-run
 against `churntes`. Two earlier instances of this exact slip are recorded in the
 entry above; the pattern is asserting on a value after something has transformed
 it.
+
+## 2026-09-12T12:30Z — rounding was right, the granularity was guessed
+
+**Tokens**: ~20,000. Session total ~5,100,000.
+
+The warning came back one turn after the rounding fix. Not a regression of the
+mechanism — the row had genuinely crossed a threshold — but proof the
+granularity had been picked by eye rather than measured.
+
+**The churn driver was the `output` column**, not the token column. Output
+tracks the same work at a tenth of the scale, so rounding it to 10,000 set the
+change rate no matter what the 100,000-rounded token column did: output moves a
+10,000 boundary every two or three turns.
+
+**Measured instead of guessed.** Observed burn: 3,000-32,000 tokens a turn,
+averaging ~10,000. The output column is gone and tokens round to 500,000.
+Replaying the *worst* observed rate for sixty consecutive turns changes the file
+four times — once per fifteen turns — and the average rate gives about one in
+fifty.
+
+**The lesson is about the first fix, not the second.** Rounding was the right
+idea and was verified against a +8,000 turn, which passed. The verification used
+one sample near the average and none near the top of the range, so it confirmed
+the mechanism while saying nothing about the setting. A threshold needs
+measuring against the distribution it will actually see.

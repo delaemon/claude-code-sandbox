@@ -151,8 +151,15 @@ Two things this must never do:
 changed on every stop: a tracked file permanently dirty, and a "commit your
 changes" warning every turn. It bought no durability either — an uncommitted
 row dies with the VM exactly as a missing one does, so only the committed value
-ever mattered. Rounded, the file changes a few times a session and each change
-means a real threshold was crossed.
+ever mattered. Rounded to 500,000, the file changes about once in fifty
+turns and each change means a real threshold was crossed.
+
+The granularity is measured, not guessed. This session burned 3,000-32,000
+tokens a turn, averaging ~10,000. A first attempt rounded to 10,000 and kept a
+separate output column; output crosses a 10,000 boundary every two or three
+turns, so the warning came straight back. Dropping that column and coarsening
+to 500,000 gives one change per ~15 turns even at the worst rate observed,
+measured by replaying that rate for sixty turns.
 
 `bash scripts/usage.sh --line` prints one line with the delta since the
 previous call, for exact numbers while working.

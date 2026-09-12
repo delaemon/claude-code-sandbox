@@ -11,11 +11,13 @@ the context size multiplied by the number of turns rather than the work.
 
 A session with no usage records is absent rather than zero.
 
-Figures are rounded, so this file changes a few times a session rather than
-on every turn. Writing it exactly made it permanently dirty in git and bought
-nothing: an uncommitted row dies with the VM just as a missing one does. Run
-`bash scripts/usage.sh --line` for exact live numbers.
+Figures are rounded to 500,000, so this file changes roughly once in fifty
+turns rather than on every one. Writing it exactly made it permanently dirty
+in git and bought nothing: an uncommitted row dies with the VM just as a
+missing one does. The granularity comes from a measured burn rate of
+3,000-32,000 tokens a turn. Run `bash scripts/usage.sh --line` for exact
+live numbers.
 
-| session | requests | tokens | output | updated |
-|---|---|---|---|---|
-| `fb2095ed` | ~1,000 | ~5,000,000 | ~910,000 | 2026-09-12 |
+| session | requests | tokens | updated |
+|---|---|---|---|
+| `fb2095ed` | ~1,000 | ~5,000,000 | 2026-09-12 |

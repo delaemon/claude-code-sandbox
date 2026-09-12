@@ -25,6 +25,14 @@
 # meaning the session crossed a real threshold. `scripts/usage.sh --line` is
 # where exact live numbers come from.
 #
+# The granularity is set from a measured burn rate, not guessed: this session
+# ran 3,000-32,000 tokens a turn, averaging ~10,000. A first attempt rounded
+# output to 10,000, which output crosses every two or three turns, so the file
+# still churned and the warning came back. At 500,000 a typical turn moves the
+# file once in ~50 turns and the worst observed turn once in ~15. The separate
+# output column is gone: it tracked the same work at a tenth of the scale, so it
+# set the churn rate no matter what the token column did.
+#
 # node, not python3: the cloud image has python3 and a dev container need not.
 set -uo pipefail
 
@@ -66,8 +74,8 @@ let raw = ""; process.stdin.on("data", (d) => (raw += d)).on("end", () => {
   // Rounded so the file does not change on every stop. See the note above.
   const round = (x, to) => Math.round(x / to) * to;
   const day = new Date().toISOString().slice(0, 10);
-  const row = `| \x60${session}\x60 | ~${n(round(calls, 100))} | `
-            + `~${n(round(tokens, 100000))} | ~${n(round(out, 10000))} | ${day} |`;
+  const row = `| \x60${session}\x60 | ~${n(round(calls, 500))} | `
+            + `~${n(round(tokens, 500000))} | ${day} |`;
 
   const file = "audit_log/usage.md";
   const header = [
@@ -84,13 +92,15 @@ let raw = ""; process.stdin.on("data", (d) => (raw += d)).on("end", () => {
     "",
     "A session with no usage records is absent rather than zero.",
     "",
-    "Figures are rounded, so this file changes a few times a session rather than",
-    "on every turn. Writing it exactly made it permanently dirty in git and bought",
-    "nothing: an uncommitted row dies with the VM just as a missing one does. Run",
-    "`bash scripts/usage.sh --line` for exact live numbers.",
+    "Figures are rounded to 500,000, so this file changes roughly once in fifty",
+    "turns rather than on every one. Writing it exactly made it permanently dirty",
+    "in git and bought nothing: an uncommitted row dies with the VM just as a",
+    "missing one does. The granularity comes from a measured burn rate of",
+    "3,000-32,000 tokens a turn. Run `bash scripts/usage.sh --line` for exact",
+    "live numbers.",
     "",
-    "| session | requests | tokens | output | updated |",
-    "|---|---|---|---|---|",
+    "| session | requests | tokens | updated |",
+    "|---|---|---|---|",
   ];
 
   let body = [];
