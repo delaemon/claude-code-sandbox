@@ -169,6 +169,33 @@ else
   bad "log-usage wrote a row for a session it could not measure"
 fi
 
+# A subagent definition with broken or missing frontmatter does not error --
+# it simply never loads, and the session runs without the agent it thought it
+# had. Same for a slash command. Both are exactly the quiet-failure shape this
+# repository exists to refuse, so both are parsed here.
+echo
+echo "agents and commands"
+for f in .claude/agents/*.md; do
+  [ -e "$f" ] || break
+  name=$(basename "$f")
+  if head -1 "$f" | grep -q '^---$' \
+     && awk 'NR>1 && /^---$/{exit} NR>1 && /^name:/{n=1} END{exit !n}' "$f" \
+     && awk 'NR>1 && /^---$/{exit} NR>1 && /^description:/{d=1} END{exit !d}' "$f"; then
+    ok "agent $name has name and description"
+  else
+    bad "agent $name has malformed frontmatter — it will not load, silently"
+  fi
+done
+for f in .claude/commands/*.md; do
+  [ -e "$f" ] || break
+  name=$(basename "$f")
+  if head -1 "$f" | grep -q '^---$'; then
+    ok "command /$(basename "$f" .md) has frontmatter"
+  else
+    bad "command $name has no frontmatter"
+  fi
+done
+
 echo
 printf 'checked: %d ok, %d note, %d failed\n' "$pass" "$warn" "$fail"
 [ "$fail" -eq 0 ] || {
