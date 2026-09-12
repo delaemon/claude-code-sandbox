@@ -39,10 +39,25 @@ if [ -z "$base_ref" ]; then
   exit 0
 fi
 
+# A three-dot range needs a merge base, and a shallow clone may not have one.
+# Checking that first is not pedantry: the first version sent the error to
+# /dev/null, so `git diff` exiting 128 produced an empty list and the step
+# reported "No agent-behaviour files changed" on a pull request that changed
+# four of them. A check that cannot run must not look like a check that passed —
+# the same rule the hooks in this repository follow.
+if ! git merge-base "$base_ref" HEAD >/dev/null 2>&1; then
+  echo "Cannot compare against \`$base\`: no merge base is reachable." >&2
+  echo "A shallow checkout causes this. Use actions/checkout with fetch-depth: 0." >&2
+  exit 1
+fi
+
 range="$base_ref...HEAD"
 watched=('.claude/**' 'CLAUDE.md' '.github/workflows/**' 'scripts/**'
          '.devcontainer/**' 'docs/worklog/CONTRACT.md')
-changed=$(git diff --name-only "$range" -- "${watched[@]}" 2>/dev/null)
+if ! changed=$(git diff --name-only "$range" -- "${watched[@]}"); then
+  echo "\`git diff $range\` failed; refusing to report this as no change." >&2
+  exit 1
+fi
 
 if [ -z "$changed" ]; then
   echo "No agent-behaviour files changed."
