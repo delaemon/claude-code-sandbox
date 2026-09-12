@@ -49,3 +49,83 @@ Task Description
 - Tool set available to agents (`utils/tools.py`): `write_file`, `read_file`, `list_files`, `run_command` (shell, 120s timeout, scoped to the workspace dir), and `finish` (ends the agent's loop with a summary + artifact list).
 - Model and token limit are hardcoded in `agents/base_agent.py` (`MODEL = "claude-sonnet-4-6"`, `MAX_TOKENS = 8192`) — change there, not per-agent.
 - Each agent file (`agents/*_agent.py`, `agents/reporter.py`, `agents/test_runner.py`) defines only a `SYSTEM` prompt and a `tools` list; behavior changes for a given phase mean editing that file's prompt, not `base_agent.py`.
+
+## Branch and PR workflow
+
+`puyo-puyo-web` is a long-lived integration branch. Work happens on disposable
+session branches (`claude/<slug>-<suffix>`) cut from it, which are merged back
+via pull request.
+
+- **Open every PR with `base: puyo-puyo-web`.** GitHub resets the base dropdown
+  to the repository default on every new PR, so this must be set explicitly each
+  time — it is the easiest mistake to make in this layout.
+- **The repository default branch is `claude/getting-started-1olkod`, not
+  `main`.** It is a leftover session branch that ended up as the default. Only
+  the final `puyo-puyo-web` → default PR should target it.
+- When the base advances, bring it in with `git merge puyo-puyo-web`. Do **not**
+  rebase: session branches are already pushed, and rewriting their history
+  breaks any checkout that has them.
+- This layout adds one PR that is easy to forget: `puyo-puyo-web` → the default
+  branch, once the project is done.
+
+## Cloud session constraints
+
+Sessions run in an ephemeral VM that is reclaimed after a period of inactivity.
+Reopening a session restores the conversation history but not the VM — anything
+uncommitted, plus background shell commands and running subagents, is gone.
+
+- Commit and push early. Work that exists only on disk is temporary.
+- A session waiting for the user to approve a tool call counts as *inactive* and
+  can expire during that wait. Keep routine commands in `permissions.allow`
+  (below) rather than letting them prompt.
+- Durable state lives outside the VM: GitHub, and server-side Routines (the
+  `send_later` tool). Anything held only inside the VM does not survive.
+
+## Claude Code harness (`.claude/`)
+
+Config here is the part of the setup that survives a VM reclaim, so behaviour
+that must hold across sessions belongs in these files rather than in a prompt.
+
+- `settings.json` — wires the hooks below and allowlists `pytest`, read-only
+  `git`, and common read commands so they don't trigger permission prompts.
+- `hooks/session-start.sh` (SessionStart) — installs the root
+  `requirements.txt` so a fresh container can run the pipeline immediately.
+  `f1map/`'s deps (pandas/numpy/fastf1) are deliberately left out: they take
+  minutes to install and are rarely needed.
+- `hooks/block-secrets.sh` (PreToolUse on `Edit|Write|NotebookEdit`) — blocks
+  edits to `.env`, `*.pem`, `*.key` and the session token file.
+
+Hook contract, for anything added here: the tool call arrives as JSON on stdin;
+exit 0 allows it, **exit 2 blocks it and feeds stderr back to Claude as the
+reason**, any other code only surfaces an error without blocking. A broken hook
+fails silently, so run a new hook by hand against both a case it should block
+and one it should allow before committing it.
+
+Prefer a hook over an instruction in this file when something must happen every
+time: this file is advisory and can be missed, whereas hooks are executed by the
+harness.
+
+### Committed plugins do load in cloud sessions (verified)
+
+A probe settled this, since the docs answer it twice and incompatibly:
+`discover-plugins` says to declare a plugin under `enabledPlugins` in
+`.claude/settings.json` when `/plugin` is unavailable, while
+`settings-reference` says that as of v2.1.195 a plugin from an external source
+does not load until each user installs it — and a GitHub-hosted marketplace is
+an external source.
+
+**Result: it loads.** With `extraKnownMarketplaces` registering
+`anthropics/claude-plugins-official` and `enabledPlugins` naming a plugin from
+it, that plugin's skills appeared in a cloud session on this repo with no
+per-user `claude plugin install`. So `.claude/settings.json` is a working
+distribution channel here, not just for local CLI sessions.
+
+Two caveats the probe does not cover: plugins load at **session start**, so a
+change only takes effect in the next session, and it must be on the branch that
+session checks out — a plugin added on a session branch does not reach sessions
+cut from `puyo-puyo-web` until it merges. Cloud sessions also don't start plugin
+language servers, so LSP plugins (`typescript-lsp` and friends) are pointless
+here whatever the settings say.
+
+`pr-review-toolkit` is enabled: this repo's work runs through pull requests
+against `puyo-puyo-web`, so review agents are the plugin that earns its slot.
