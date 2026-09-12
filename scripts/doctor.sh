@@ -97,6 +97,20 @@ for h in session-start block-secrets typecheck log-usage; do
   [ -x ".claude/hooks/$h.sh" ] && ok "$h.sh executable" || bad "$h.sh missing or not executable"
 done
 
+# A hook whose body is not valid JavaScript does not announce itself: a failing
+# Stop hook is non-blocking, so it simply does nothing and says nothing. The
+# body used to be inlined in `node -e` inside single quotes, where one
+# apostrophe in a comment ended the shell string and broke it -- three separate
+# times. In its own file it can be checked, so it is.
+for m in .claude/hooks/*.mjs; do
+  [ -e "$m" ] || break
+  if node --check "$m" 2>/dev/null; then
+    ok "$(basename "$m") parses"
+  else
+    bad "$(basename "$m") is not valid JavaScript — the hook would fail silently"
+  fi
+done
+
 # Behaviour, not presence. Each case states what the hook must do and the run
 # has to agree.
 hook_exit() {
@@ -150,8 +164,10 @@ rm -f "$probe"
 # it is asserted rather than assumed.
 real_t=$(ls -t "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1)
 if [ -n "$real_t" ]; then
+  probe_log=$(mktemp)
   emitted=$(printf '{"session_id":"ctx-probe","transcript_path":"%s"}' "$real_t" \
-    | bash "$repo/.claude/hooks/log-usage.sh" 2>/dev/null)
+    | USAGE_LOG="$probe_log" bash "$repo/.claude/hooks/log-usage.sh" 2>/dev/null)
+  rm -f "$probe_log"
   if printf '%s' "$emitted" | node -e '
       let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
         const c=JSON.parse(s).hookSpecificOutput;

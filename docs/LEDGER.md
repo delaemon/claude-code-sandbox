@@ -27,11 +27,23 @@ happening again.
 | 9 | A subagent or command file with broken frontmatter does not error — it silently never loads, and the session runs without the agent it believed it had | `has name and description` | yes |
 
 | 11 | The Stop hook spoke on every stop; two turns then arrived with no user input, which is the shape of a hook that talks, starts a turn, and talks again | `scripts/doctor.sh` | bounded, not proven |
+| 12 | A `doctor.sh` probe ran the usage hook against the real log, leaving a row behind on every run — a diagnostic contaminating the record it checked | `USAGE_LOG` | yes |
+| 13 | Rows were appended rather than sorted, so any other session shifted the order and the file changed with no value changing — silently undoing the rounding |  `.claude/hooks/log-usage.mjs` | yes |
+| 14 | The hook body was inlined in `node -e` inside single quotes; an apostrophe in a comment ended the shell string and broke it, three separate times, and a failing Stop hook does nothing quietly | `parses` | yes |
+| 15 | The test for 13 compared three checksums that were all empty, because the hook was broken — it passed because everything failed equally | - | n/a |
 
 ## Open rows
 
-**3** and **6** have no executable check, and **11** is bounded rather than
-diagnosed.
+**3** and **6** have no executable check, **11** is bounded rather than
+diagnosed, and **15** is a habit rather than a mechanism.
+
+**15** is the one worth re-reading. The fix for row 13 was verified by comparing
+checksums before and after — and all three were empty strings, because the hook
+under test was broken and never wrote the file. Equal, therefore "no churn",
+therefore green. The same shape as rows 3, 7 and 10, committed inside the
+verification of a fix for that shape. What closes it is asserting a positive
+first: the rebuilt test checks the file is non-empty and the rows are present
+*before* comparing anything, so a total failure cannot read as a pass.
 
 **11** was never confirmed to be a loop. The emission is now tied to the rounded
 row, so it can fire at most once per threshold crossing and a loop cannot run
