@@ -26,9 +26,18 @@ happening again.
 | 10 | `ledger.sh` searched doctor.sh for a label including its surrounding quotes, so an interpolated label read as a missing check | `scripts/ledger.sh` | yes |
 | 9 | A subagent or command file with broken frontmatter does not error — it silently never loads, and the session runs without the agent it believed it had | `has name and description` | yes |
 
+| 11 | The Stop hook spoke on every stop; two turns then arrived with no user input, which is the shape of a hook that talks, starts a turn, and talks again | `scripts/doctor.sh` | bounded, not proven |
+
 ## Open rows
 
-**3** and **6** have no executable check.
+**3** and **6** have no executable check, and **11** is bounded rather than
+diagnosed.
+
+**11** was never confirmed to be a loop. The emission is now tied to the rounded
+row, so it can fire at most once per threshold crossing and a loop cannot run
+twice, and `stop_hook_active` is honoured. What is missing is the diagnosis: if
+the two turns had another cause, this bound was paid for nothing. Cheap
+insurance against an unbounded bill, but insurance, not understanding.
 
 - **3** is arguably uncheckable: the tests assert against the palette because the
   hex values are a design choice, not a correctness property. What would close it

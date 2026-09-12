@@ -158,6 +158,11 @@ if [ -n "$real_t" ]; then
         process.exit(c.hookEventName==="Stop" && /^\[tok\]/.test(c.additionalContext) ? 0 : 1);
       })' 2>/dev/null; then
     ok "log-usage returns the usage line as Stop additionalContext"
+  elif [ -z "$emitted" ]; then
+    # Silence here is correct when the rounded row has not moved: the emission
+    # is bounded so a Stop hook cannot talk itself into a loop. Reported rather
+    # than passed silently, so a channel that has genuinely died is visible.
+    note "log-usage stayed silent — the usage row has not moved since last stop"
   else
     bad "log-usage no longer emits additionalContext on exit 0"
   fi

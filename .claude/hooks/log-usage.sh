@@ -83,13 +83,6 @@ let raw = ""; process.stdin.on("data", (d) => (raw += d)).on("end", () => {
   // nothing, which is why typecheck.sh reaches for exit 2 -- and that claim
   // cost one tool call per turn to report usage the harness now carries free.
   // No apostrophes in this block: it lives inside node -e with single quotes.
-  const line = `[tok] req ${n(calls)} \u00b7 out+write ${n(tokens)} \u00b7 `
-             + `ctx ${n(ctx)} \u00b7 remaining: unmeasurable (never recorded `
-             + `until a request is refused)`;
-  process.stdout.write(JSON.stringify({
-    hookSpecificOutput: { hookEventName: "Stop", additionalContext: line },
-  }));
-
   const file = "audit_log/usage.md";
   const header = [
     "# Session token usage",
@@ -122,9 +115,33 @@ let raw = ""; process.stdin.on("data", (d) => (raw += d)).on("end", () => {
     body = cur.filter((l) => l.startsWith("| `") && !l.startsWith(`| \x60${session}\x60 |`));
   } catch {}
   body.push(row);
+  let changed = true;
+  try { changed = fs.readFileSync(file, "utf8") !== header.concat(body).join("\n") + "\n"; }
+  catch { changed = true; }
   try {
-    fs.writeFileSync(file, header.concat(body).join("\n") + "\n");
+    if (changed) fs.writeFileSync(file, header.concat(body).join("\n") + "\n");
   } catch {}
+
+  // additionalContext only when the row actually moved.
+  //
+  // Emitting it every stop produced two consecutive turns with no user input,
+  // which is the shape of a loop: the hook speaks, that starts a turn, the turn
+  // stops, the hook speaks again. That was not proven -- but an unbounded loop
+  // spends someone--s quota with nothing to show, so it is bounded rather than
+  // investigated while running. Tied to the rounded row, this can fire at most
+  // once per threshold crossing, roughly once in fifty turns, so even if the
+  // suspicion is right the loop cannot run twice.
+  //
+  // stop_hook_active is the documented guard for a Stop hook re-entering, and
+  // is honoured too: when the harness says it is already continuing because of
+  // a stop hook, this one says nothing at all.
+  if (changed && j.stop_hook_active !== true) {
+    const line = `[tok] req ${n(calls)} \u00b7 out+write ${n(tokens)} \u00b7 `
+               + `ctx ${n(ctx)} \u00b7 remaining: unmeasurable`;
+    process.stdout.write(JSON.stringify({
+      hookSpecificOutput: { hookEventName: "Stop", additionalContext: line },
+    }));
+  }
 });
 '
 
