@@ -97,6 +97,14 @@ Follow from this when adding to the harness:
 `bash scripts/gates.sh` is the single verdict, and two of its gates are about
 the harness rather than the game:
 
+- **`scripts/mutate.mjs`** damages behaviour and requires the suite to notice —
+  the renderer ignoring its palette, `cellRect` transposed, the hidden-row
+  offset dropped, the chain multiplier frozen. A passing suite proves the tests
+  ran, not that they would catch anything. Mutating the *palette* is
+  deliberately not among them: the hex values are a design choice, which is
+  exactly why the first attempt to prove the colour tests bit did it that way
+  and passed. **A new test belongs here as a mutant** if a plausible bug in the
+  code it covers would not fail it.
 - **`evals/run.sh`** replays every failure `docs/LEDGER.md` claims is caught.
   Each case breaks something in a throwaway copy and asserts the named check
   fails, **having first required it to pass** — without that, a check already

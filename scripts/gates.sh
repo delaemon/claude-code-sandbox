@@ -40,6 +40,8 @@ echo "gates"
 run "typecheck"           bash -c 'cd puyopuyo && npm run typecheck'
 run "tests"               bash -c 'cd puyopuyo && npm test'
 run "clock boundary"        node scripts/clock-boundary.mjs
+[ $quick -eq 1 ] || \
+run "mutation"            node scripts/mutate.mjs
 run "audit log tests"     bash -c 'command -v python3 >/dev/null && python3 -m pytest audit_log/test_export.py -q || echo "pytest unavailable; skipped"'
 run "environment"         bash scripts/doctor.sh
 run "failure ledger"      bash scripts/ledger.sh

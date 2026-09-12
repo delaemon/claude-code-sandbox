@@ -58,6 +58,12 @@ jobs:
       # The ledger says each failure is caught. These replay it: every case
       # breaks something in a throwaway copy and asserts the named check fails,
       # having first required it to pass.
+      # A passing suite proves the tests ran, not that they would catch
+      # anything. Each mutant damages behaviour and must be noticed.
+      - name: Mutation
+        working-directory: .
+        run: node scripts/mutate.mjs
+
       - name: Harness evals
         working-directory: .
         run: bash evals/run.sh
