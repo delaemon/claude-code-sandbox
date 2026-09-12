@@ -12,7 +12,15 @@
 # same rule the hooks here follow.
 #
 # Usage:  bash scripts/usage.sh [TRANSCRIPT.jsonl]
+#         bash scripts/usage.sh --line   one compact line, with the delta since
+#                                        the previous --line call
+#
+# --line keeps a stamp under the scratch directory so the delta survives across
+# calls. If the stamp is missing the delta is reported as "first", never as 0.
 set -uo pipefail
+
+mode="full"
+if [ "${1:-}" = "--line" ]; then mode="line"; shift; fi
 
 transcript="${1:-}"
 if [ -z "$transcript" ]; then
@@ -64,6 +72,41 @@ r.on("close", () => {
     process.exit(1);
   }
   const n = (x) => x.toLocaleString("en-US");
+  const mode = process.argv[2] || "full";
+  const stampPath = process.argv[3];
+
+  if (mode === "line") {
+    // Delta since the previous --line call. A missing stamp is reported as
+    // "first", not as a delta of zero: no reading and no change must not look
+    // the same.
+    let prev = null;
+    try { prev = JSON.parse(fs.readFileSync(stampPath, "utf8")); } catch {}
+    const billed = out + cacheWrite + fresh;
+    const d = prev && typeof prev.billed === "number"
+      ? `+${n(billed - prev.billed)}` : "first";
+    const dCalls = prev && typeof prev.calls === "number"
+      ? `+${calls - prev.calls}` : "first";
+    try {
+      fs.writeFileSync(stampPath, JSON.stringify({ billed, calls, at: Date.now() }));
+    } catch (e) {
+      console.log(`[tok] stamp unwritable (${e.code}); delta unavailable`);
+    }
+    const parts = [
+      `req ${n(calls)} (${dCalls})`,
+      `out+write ${n(billed)} (${d})`,
+      `ctx ${n(lastContext)}`,
+    ];
+    if (limit) {
+      const mins = Math.round((limit.resetsAt * 1000 - Date.now()) / 60000);
+      parts.push(mins > 0
+        ? `${limit.type} reset in ${mins}m`
+        : `last ${limit.type} block ${-mins}m ago`);
+    }
+    parts.push("remaining: unmeasurable");
+    console.log("[tok] " + parts.join(" · "));
+    return;
+  }
+
   console.log(`transcript   ${path}`);
   console.log(`requests     ${n(calls)}`);
   console.log("");
@@ -84,4 +127,4 @@ r.on("close", () => {
   console.log("remaining    not measurable — the transcript records the limit");
   console.log("             only when a request is refused, never before.");
 });
-' "$transcript"
+' "$transcript" "$mode" "${STAMP:-${TMPDIR:-/tmp}/claude-usage-stamp.json}"
