@@ -182,10 +182,9 @@ function applyAction(state: ControllableState, input: PlayerAction): GameState {
     case 'rotateCCW':
       return reposition(state, rotate(board, state.piece, 'ccw'));
     case 'softDrop': {
-      const moved = moveDown(board, state.piece);
-      // Resting: a no-op. Locking on demand is what hard drop is for.
-      if (moved === null) return state;
-      return falling(state, moved, 0);
+      // One row down, and the natural-fall accumulator restarts. Resting is a
+      // no-op: locking on demand is what hard drop is for.
+      return reposition(state, moveDown(board, state.piece), 0);
     }
     case 'hardDrop': {
       let piece = state.piece;
@@ -200,17 +199,16 @@ function applyAction(state: ControllableState, input: PlayerAction): GameState {
 }
 
 /** Apply a move that may have been refused (`null` = nothing happens). */
-function reposition(state: ControllableState, moved: Piece | null): GameState {
+function reposition(
+  state: ControllableState,
+  moved: Piece | null,
+  fallAccMs: number = state.fallAccMs,
+): GameState {
   if (moved === null) return state;
   if (isGrounded(state.board, moved)) {
-    return locking(
-      state,
-      moved,
-      state.fallAccMs,
-      state.phase === 'locking' ? state.lockAccMs : 0,
-    );
+    return locking(state, moved, fallAccMs, state.phase === 'locking' ? state.lockAccMs : 0);
   }
-  return falling(state, moved, state.fallAccMs);
+  return falling(state, moved, fallAccMs);
 }
 
 // ---------------------------------------------------------------- locking
