@@ -137,3 +137,14 @@ again this round — they land once the reducer's shape is settled.
 - Scoring is a **pure function over `ResolveResult`**, which already carries the
   inputs it needs (`chain`, `cleared`, `colors` per step). It imports from
   `src/core/` and knows nothing about game state.
+
+## Learned in round 2: write the log entry when you decide, not at the end
+
+The game agent was killed by a rate limit after its code and tests were on disk
+but before it wrote its log. Everything it built survived; every reason it had
+for building it that way did not, and had to be reconstructed from the code by
+someone who was not there.
+
+So: **append the log entry at the moment you make the decision.** A log written
+last is the first thing an interruption takes, and it is the only part that
+cannot be recovered from the artefact — code states what, never why.
