@@ -4,10 +4,22 @@ name: CI
 # session branch, so a default-branch trigger would never fire for this project.
 # pull_request is left unfiltered because it is simpler and checks every PR in
 # the repository. Nothing is ever merged into the default branch here.
+# audit_log/ is excluded because CI on it closed a loop, not because it is
+# cheap to skip. The hooks append a line to audit_log/turns.jsonl every turn;
+# the environment's git check then asks for a commit; the commit ran CI; CI
+# completing sent a PR notification; the notification woke a turn, which
+# appended another line. Six of ten commits on the pull request that found this
+# were that cycle, about a minute apart, sustaining itself with no input.
+#
+# Nothing under audit_log/ is code. It is numbers written by hooks, and no gate
+# here reads it. A pull request touching only those files now runs no checks,
+# which is the accepted cost.
 on:
   pull_request:
+    paths-ignore: ['audit_log/**']
   push:
     branches: [puyo-puyo-web]
+    paths-ignore: ['audit_log/**']
 
 permissions:
   contents: read

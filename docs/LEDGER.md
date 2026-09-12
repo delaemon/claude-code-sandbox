@@ -40,6 +40,7 @@ happening again.
 | 22 | The churn check compared two `cksum` reads of a file that did not exist, and two empty strings compare equal | `scripts/churn-check.mjs` | yes |
 | 23 | `mutate.mjs` decided "killed" by matching raw vitest output, which is coloured in CI and not locally, so every mutant passed here and the first reported BROKEN there — a verdict that depended on where it ran | `scripts/mutate.mjs` | yes |
 | 24 | That BROKEN message named two guesses and printed no output, so the CI failure it reported could not be diagnosed from the log | `scripts/mutate.mjs` | yes |
+| 25 | Committing the per-turn log ran CI, whose completion sent a PR notification, which woke a turn, which appended another line — a loop sustaining itself about once a minute with no input | `.github/workflows/ci.yml` | observed live |
 
 ## Closed since, and how
 
@@ -83,6 +84,22 @@ The replacement asserts a positive before comparing anything, runs three probes
 straddling boundaries so a granularity of 250,000 or tighter is caught, and is
 node only. Every one of those four failures was found by the `verifier` subagent
 on its first run, and each was reproduced here before being fixed.
+
+**25 is the loop that was actually there.** Row 11 suspected the Stop hook of
+talking itself into turns and was diagnosed as innocent, correctly. Meanwhile
+the same shape ran through a different path: the hook appends to
+`turns.jsonl`, the environment's git check asks for a commit, the commit runs
+CI, CI completing sends a PR notification, and the notification wakes a turn
+that appends another line. Six of the ten commits on the pull request that found
+it were that cycle, roughly a minute apart.
+
+`audit_log/**` is excluded from the CI triggers now, which cuts the link
+between a log line and a notification.
+
+The decision to exclude it had been raised once already and dropped, on the
+grounds that Actions minutes are free for a public repository. The cost estimate
+was right and irrelevant: the harm was never the minutes. Estimating the wrong
+quantity accurately is its own way of being wrong.
 
 **23 and 24 came from CI**, after the rest of this had been verified locally.
 `mutate.mjs` matched vitest's raw summary for `Tests N failed`; vitest colours
