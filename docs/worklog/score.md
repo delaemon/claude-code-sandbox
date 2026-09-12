@@ -170,3 +170,18 @@ argument. Scoring never calls `resolve`, so it is unaffected — but if
 `hiddenRows` ever changes what a `ChainStep` contains (it should not; it only
 changes which groups are found), `tests/score/` will catch it, because they go
 through the real `resolve`.
+
+## 2026-09-12 — re-check attempted, still unreachable
+
+**Decision**: 6-chain power stays at 96. Unchanged, but now for a second reason:
+the re-check this entry asked for has been tried and could not be done.
+
+**Evidence**: from a later session on the same container,
+`curl` to `puyonexus.com/wiki/Scoring`, `puyonexus.net` and even
+`en.wikipedia.org` all returned HTTP 000 — the egress proxy refuses the CONNECT
+(it answers 403 for these hosts). No primary source is reachable from here at
+all, so the citation remains to the two implementations, not to the wiki.
+
+**Open**: unchanged. This is the one value worth re-checking from an environment
+with wider network access. Until then `tables.test.ts` pins 96, so changing it
+is a one-line edit with a failing test pointing straight at it.
