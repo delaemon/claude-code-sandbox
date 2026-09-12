@@ -49,6 +49,12 @@ jobs:
       # now catches it. It is only worth having if the checks are real, so this
       # asserts that each one still exists — a removed check means the failure
       # can happen again, and the table would otherwise still claim it cannot.
+      # CLAUDE.md called a grep "the check" keeping clocks and randomness out of
+      # everything but main.ts. Nothing ran it. This does.
+      - name: Clock boundary
+        working-directory: .
+        run: node scripts/clock-boundary.mjs
+
       - name: Failure ledger
         working-directory: .
         run: bash scripts/ledger.sh
