@@ -23,7 +23,11 @@ run() {
   local label="$1"; shift
   local out status
   out=$("$@" 2>&1); status=$?
-  if [ $status -eq 0 ]; then
+  if [ $status -eq 3 ]; then
+    # 3 means the check could not run. Not a failure, and not a pass either.
+    printf '  %snote%s  %s %sdid not run%s\n' "$dim" "$off" "$label" "$dim" "$off"
+    printf '%s\n' "$out" | sed 's/^/        /'
+  elif [ $status -eq 0 ]; then
     printf '  %sok%s    %s\n' "$green" "$off" "$label"
   else
     printf '  %sFAIL%s  %s %s(exit %d)%s\n' "$red" "$off" "$label" "$dim" "$status" "$off"
@@ -41,6 +45,8 @@ run "environment"         bash scripts/doctor.sh
 run "failure ledger"      bash scripts/ledger.sh
 [ $quick -eq 1 ] || \
 run "agent behaviour"     bash scripts/agent-config-diff.sh
+[ $quick -eq 1 ] || \
+run "harness evals"       bash evals/run.sh
 
 echo
 if [ $failed -eq 0 ]; then

@@ -55,6 +55,13 @@ jobs:
         working-directory: .
         run: node scripts/clock-boundary.mjs
 
+      # The ledger says each failure is caught. These replay it: every case
+      # breaks something in a throwaway copy and asserts the named check fails,
+      # having first required it to pass.
+      - name: Harness evals
+        working-directory: .
+        run: bash evals/run.sh
+
       - name: Failure ledger
         working-directory: .
         run: bash scripts/ledger.sh

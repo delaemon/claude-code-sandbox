@@ -92,6 +92,24 @@ Follow from this when adding to the harness:
 - **Add a case to `doctor.sh`** for anything new that could differ between the
   two.
 
+### The harness checks itself
+
+`bash scripts/gates.sh` is the single verdict, and two of its gates are about
+the harness rather than the game:
+
+- **`evals/run.sh`** replays every failure `docs/LEDGER.md` claims is caught.
+  Each case breaks something in a throwaway copy and asserts the named check
+  fails, **having first required it to pass** — without that, a check already
+  broken for some other reason would report a success it did not earn. The
+  ledger's "verified by breaking" column was a hand-written claim until this
+  existed. **A new check belongs here as a case, not only as a paragraph.**
+- **`scripts/agent-config-diff.sh`** reviews changes to the agent's own
+  configuration, below.
+
+Exit **3 means a check did not run**, and `gates.sh` shows it as a note rather
+than a pass. The config gate returns it when there is no base ref to compare
+against: an ordinary situation, but one that used to print `ok`.
+
 ### Changes to the agent's own behaviour
 
 Some files here decide what the agent may do and what the next session
@@ -180,6 +198,11 @@ a check cannot hold:
   work before install.
 - `log-usage.sh` **exits 0 on every path**. A Stop hook that blocked could stop
   a session from ever finishing, which is worse than a missing row.
+- `record-subagent.sh` (SubagentStop) writes to `audit_log/subagents.jsonl`. It
+  records the payload's **known fields and the names of the rest**, never the
+  values: the documented schema is incomplete, this repository is public, and an
+  unrecognised field could hold conversation text. It exists to learn the shape
+  from the harness rather than from a document that does not state it.
 
 **Hook contract.** The event arrives as JSON on stdin. **Exit 2 blocks**, on the
 events that support blocking (`PreToolUse`, `UserPromptSubmit`, `Stop`), and the

@@ -93,7 +93,7 @@ esac
 
 echo
 echo "hooks"
-for h in session-start block-secrets typecheck log-usage; do
+for h in session-start block-secrets typecheck log-usage record-subagent; do
   [ -x ".claude/hooks/$h.sh" ] && ok "$h.sh executable" || bad "$h.sh missing or not executable"
 done
 
@@ -205,6 +205,17 @@ for f in .claude/agents/*.md; do
     ok "agent $name has name and description"
   else
     bad "agent $name has malformed frontmatter — it will not load, silently"
+  fi
+done
+for f in .claude/skills/*/SKILL.md; do
+  [ -e "$f" ] || break
+  name=$(basename "$(dirname "$f")")
+  if head -1 "$f" | grep -q '^---$' \
+     && awk 'NR>1 && /^---$/{exit} NR>1 && /^name:/{n=1} END{exit !n}' "$f" \
+     && awk 'NR>1 && /^---$/{exit} NR>1 && /^description:/{d=1} END{exit !d}' "$f"; then
+    ok "skill $name has name and description"
+  else
+    bad "skill $name has malformed frontmatter — it will not load, silently"
   fi
 done
 for f in .claude/commands/*.md; do

@@ -32,6 +32,8 @@ happening again.
 | 14 | The hook body was inlined in `node -e` inside single quotes; an apostrophe in a comment ended the shell string and broke it, three separate times, and a failing Stop hook does nothing quietly | `parses` | yes |
 | 15 | The test for 13 compared three checksums that were all empty, because the hook was broken — it passed because everything failed equally | - | n/a |
 | 16 | `CLAUDE.md` named a `grep` as "the check" keeping clocks out of `src/`; nothing ran it, and a naive version would have false-positived on the files describing the rule in prose | `scripts/clock-boundary.mjs` | yes |
+| 17 | `agent-config-diff.sh` exited 0 when no base ref existed, so `gates.sh` printed `ok` for a check that never looked | `scripts/gates.sh` | yes |
+| 18 | The ledger's "verified by breaking" column was a hand-written claim; nothing re-ran those breakages, so a weakened check would keep reading as caught | `evals/run.sh` | yes |
 
 ## Open rows
 
