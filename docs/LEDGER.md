@@ -38,6 +38,8 @@ happening again.
 | 20 | It counted any non-zero exit as a kill, so a mutant that only broke the parser, or hung, reported as a confident kill with nothing asserted | `scripts/mutate.mjs` | yes |
 | 21 | `--only` with a missing or empty value selected every mutant, so a run believed narrow returned green for the whole suite | `scripts/mutate.mjs` | yes |
 | 22 | The churn check compared two `cksum` reads of a file that did not exist, and two empty strings compare equal | `scripts/churn-check.mjs` | yes |
+| 23 | `mutate.mjs` decided "killed" by matching raw vitest output, which is coloured in CI and not locally, so every mutant passed here and the first reported BROKEN there — a verdict that depended on where it ran | `scripts/mutate.mjs` | yes |
+| 24 | That BROKEN message named two guesses and printed no output, so the CI failure it reported could not be diagnosed from the log | `scripts/mutate.mjs` | yes |
 
 ## Closed since, and how
 
@@ -81,6 +83,22 @@ The replacement asserts a positive before comparing anything, runs three probes
 straddling boundaries so a granularity of 250,000 or tighter is caught, and is
 node only. Every one of those four failures was found by the `verifier` subagent
 on its first run, and each was reproduced here before being fixed.
+
+**23 and 24 came from CI**, after the rest of this had been verified locally.
+`mutate.mjs` matched vitest's raw summary for `Tests N failed`; vitest colours
+that line when it believes a terminal is watching, which it does under CI and
+does not through `execSync` here. So the same code killed every mutant on this
+machine and reported the first as BROKEN on the runner. ANSI is stripped before
+matching now.
+
+It is the fifth instance of the shape this repository keeps recording — an
+assertion reading a value in the spelling it had *before* something transformed
+it — and the first where the transformer was not our own code.
+
+Worse was 24: that BROKEN branch printed two guesses, "does not compile, or it
+hangs", and none of the output. A whole CI cycle produced no evidence. It prints
+the last 25 lines now, which shows at a glance whether tests failed or files
+failed to load.
 
 **19 through 21** are the same review, on `mutate.mjs`. It mutated the working
 tree, which is not theoretical in a session that commits on a Stop hook: a

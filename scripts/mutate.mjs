@@ -190,18 +190,27 @@ for (const m of applicable) {
   // asserted on the behaviour the mutant claims to test -- and would report as
   // a confident kill. So the output has to show the suite running and reporting
   // failed tests.
-  const reported = /Tests\s+\d+\s+failed/.test(output);
-  const ran = /Test Files\s+\d+/.test(output);
+  // Strip ANSI first. vitest colours its summary when it thinks a terminal is
+  // watching, which it does in CI and does not here, so the raw text reads
+  // `Tests \x1b[1m\x1b[31m2 failed` there and `Tests  2 failed` locally. Matching
+  // the raw output passed every mutant on this machine and reported the first
+  // one BROKEN in CI -- a check whose verdict depended on where it ran.
+  const plain = output.replace(/\u001b\[[0-9;]*m/g, "");
+  const reported = /Tests\s+\d+\s+failed/.test(plain);
+  const ran = /Test Files\s+\d+/.test(plain);
   if (threw && reported) {
     console.log(`  killed   ${m.name}`);
-  } else if (threw && !ran) {
-    console.error(`  BROKEN   ${m.name}: the suite never reported results, so`);
-    console.error(`           nothing asserted on its claim. The mutant does not`);
-    console.error(`           compile, or it hangs rather than failing.`);
-    process.exit(2);
   } else if (threw) {
-    console.error(`  BROKEN   ${m.name}: the run failed without reporting a failed`);
-    console.error(`           test, so nothing asserted on its claim.`);
+    // Print what actually happened. The first version of this branch said only
+    // "does not compile, or it hangs", and when it fired in CI -- where the
+    // suite behaves differently from a local run -- that message named two
+    // guesses and no evidence, which is most of a wasted cycle.
+    console.error(`  BROKEN   ${m.name}: the run failed without the suite`);
+    console.error(`           reporting a failed test, so nothing asserted on`);
+    console.error(`           its claim. Its output follows.`);
+    const tail = plain.trim().split("\n").slice(-25);
+    for (const line of tail) console.error(`           | ${line}`);
+    if (tail.length === 0) console.error("           | (no output at all)");
     process.exit(2);
   } else {
     console.log(`  SURVIVED ${m.name} — ${m.claim}`);
