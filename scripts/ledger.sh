@@ -36,7 +36,13 @@ while IFS='|' read -r _ num failure check _rest; do
   bare=${check//\`/}
   if [ -e "$bare" ]; then
     printf '  ok    %s. %s\n' "$num" "$bare"
-  elif grep -qF "\"$bare\"" scripts/doctor.sh 2>/dev/null; then
+  # Match the label text anywhere in doctor.sh rather than requiring the
+  # surrounding quotes. Labels are built with variables in them --
+  # ok "agent $name has name and description" -- so a quote-anchored match finds
+  # nothing and reports a real check as missing. That is the third time in this
+  # harness that an assertion has searched for a value using its spelling from
+  # before the code transformed it.
+  elif grep -qF "$bare" scripts/doctor.sh 2>/dev/null; then
     printf '  ok    %s. doctor.sh: %s\n' "$num" "$bare"
   else
     printf '  FAIL  %s. no such check: %s\n' "$num" "$bare"
