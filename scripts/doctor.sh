@@ -97,6 +97,20 @@ for h in session-start block-secrets typecheck log-usage; do
   [ -x ".claude/hooks/$h.sh" ] && ok "$h.sh executable" || bad "$h.sh missing or not executable"
 done
 
+# A hook whose body is not valid JavaScript does not announce itself: a failing
+# Stop hook is non-blocking, so it simply does nothing and says nothing. The
+# body used to be inlined in `node -e` inside single quotes, where one
+# apostrophe in a comment ended the shell string and broke it -- three separate
+# times. In its own file it can be checked, so it is.
+for m in .claude/hooks/*.mjs; do
+  [ -e "$m" ] || break
+  if node --check "$m" 2>/dev/null; then
+    ok "$(basename "$m") parses"
+  else
+    bad "$(basename "$m") is not valid JavaScript — the hook would fail silently"
+  fi
+done
+
 # Behaviour, not presence. Each case states what the hook must do and the run
 # has to agree.
 hook_exit() {
@@ -145,11 +159,63 @@ rm -f "$probe"
 # The hook truncates the session id to 8 characters, so the row would read
 # `doctor-p`. Grepping for the full name would never match and the assertion
 # would be dead — it was, on the first try.
+# Exit 0 carries a structured channel: JSON on stdout, whose additionalContext
+# reaches the next turn. It is the reason the usage line costs no tool call, so
+# it is asserted rather than assumed.
+real_t=$(ls -t "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1)
+if [ -n "$real_t" ]; then
+  probe_log=$(mktemp)
+  emitted=$(printf '{"session_id":"ctx-probe","transcript_path":"%s"}' "$real_t" \
+    | USAGE_LOG="$probe_log" bash "$repo/.claude/hooks/log-usage.sh" 2>/dev/null)
+  rm -f "$probe_log"
+  if printf '%s' "$emitted" | node -e '
+      let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+        const c=JSON.parse(s).hookSpecificOutput;
+        process.exit(c.hookEventName==="Stop" && /^\[tok\]/.test(c.additionalContext) ? 0 : 1);
+      })' 2>/dev/null; then
+    ok "log-usage returns the usage line as Stop additionalContext"
+  elif [ -z "$emitted" ]; then
+    # Silence here is correct when the rounded row has not moved: the emission
+    # is bounded so a Stop hook cannot talk itself into a loop. Reported rather
+    # than passed silently, so a channel that has genuinely died is visible.
+    note "log-usage stayed silent — the usage row has not moved since last stop"
+  else
+    bad "log-usage no longer emits additionalContext on exit 0"
+  fi
+fi
+
 if [ "$before" = "$after" ] && ! grep -q 'doctor-p' "$usage_log" 2>/dev/null; then
   ok "log-usage records nothing when it cannot measure"
 else
   bad "log-usage wrote a row for a session it could not measure"
 fi
+
+# A subagent definition with broken or missing frontmatter does not error --
+# it simply never loads, and the session runs without the agent it thought it
+# had. Same for a slash command. Both are exactly the quiet-failure shape this
+# repository exists to refuse, so both are parsed here.
+echo
+echo "agents and commands"
+for f in .claude/agents/*.md; do
+  [ -e "$f" ] || break
+  name=$(basename "$f")
+  if head -1 "$f" | grep -q '^---$' \
+     && awk 'NR>1 && /^---$/{exit} NR>1 && /^name:/{n=1} END{exit !n}' "$f" \
+     && awk 'NR>1 && /^---$/{exit} NR>1 && /^description:/{d=1} END{exit !d}' "$f"; then
+    ok "agent $name has name and description"
+  else
+    bad "agent $name has malformed frontmatter — it will not load, silently"
+  fi
+done
+for f in .claude/commands/*.md; do
+  [ -e "$f" ] || break
+  name=$(basename "$f")
+  if head -1 "$f" | grep -q '^---$'; then
+    ok "command /$(basename "$f" .md) has frontmatter"
+  else
+    bad "command $name has no frontmatter"
+  fi
+done
 
 echo
 printf 'checked: %d ok, %d note, %d failed\n' "$pass" "$warn" "$fail"

@@ -226,13 +226,24 @@ belongs in these files rather than in a prompt.
   `audit_log/usage.md`. It **exits 0 on every path**: a Stop hook that blocked
   could stop a session from ever finishing, which is worse than a missing row.
 
-**Hook contract.** The tool call arrives as JSON on stdin. Exit 0 allows it;
-**exit 2 blocks it and feeds stderr back to Claude as the reason**; any other
-code surfaces an error without blocking. Stderr from a hook that exits 0 is
-discarded and never reaches Claude, which is why `typecheck.sh` exits 2 rather
-than merely printing. A broken hook fails silently, so run a new one by hand
-against both a case it should block and one it should allow before committing
-it.
+**Hook contract.** The event arrives as JSON on stdin. **Exit 2 blocks**, on the
+events that support blocking (`PreToolUse`, `UserPromptSubmit`, `Stop`), and the
+reason comes from stderr. Any other non-zero code surfaces an error without
+blocking.
+
+**Exit 0 is not silent.** Stderr is discarded, but **stdout is read as JSON**,
+and `hookSpecificOutput.additionalContext` reaches the next turn's reasoning —
+supported on `Stop`, `SessionStart`, `UserPromptSubmit` and `PostToolUse`, but
+not `PreToolUse`, which uses `permissionDecision` instead.
+
+This file previously stated that exit 0 could say nothing to Claude, and that
+error had a price: the session-usage line was reported by running a script as a
+tool call every turn, when `log-usage.sh` could return it as `additionalContext`
+for free. **Reach for exit 0 with `additionalContext` first; exit 2 is for
+stopping something, not for being heard.**
+
+A broken hook fails silently, so run a new one by hand against a case it should
+block and one it should allow before committing it.
 
 Prefer a hook over an instruction in this file whenever something must happen
 every time: this file is advisory and can be missed, hooks are executed by the
