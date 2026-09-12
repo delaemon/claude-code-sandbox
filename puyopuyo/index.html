@@ -2,11 +2,33 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="Puyo Puyo in the browser: pure TypeScript rules, canvas rendering." />
     <title>Puyo Puyo</title>
+    <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <div id="app"></div>
+    <div class="app">
+      <header class="bar">
+        <h1>Puyo<span>Puyo</span></h1>
+        <p class="seed">seed <code id="seed">-</code></p>
+      </header>
+
+      <main class="stage">
+        <canvas id="game" width="300" height="260">
+          A canvas showing the Puyo Puyo playfield. This browser does not support it.
+        </canvas>
+      </main>
+
+      <footer class="bar keys">
+        <span><kbd>&larr;</kbd><kbd>&rarr;</kbd> move</span>
+        <span><kbd>Z</kbd><kbd>X</kbd> rotate</span>
+        <span><kbd>&darr;</kbd> soft drop</span>
+        <span><kbd>Space</kbd> hard drop</span>
+        <span><kbd>R</kbd> restart</span>
+      </footer>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
