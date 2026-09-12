@@ -112,3 +112,55 @@ shows only additions.
 **Open**: `Bash(npm install:*)` allows installing arbitrary packages without a
 prompt. Accepted because the task asked for it and the container is disposable,
 but it is the broadest entry in the list.
+
+## 2026-09-12T12:20Z — token usage is logged, and the part that cannot be measured is not
+
+**Tokens**: this entry's work cost ~130,000 (output + cache writes + fresh
+input). Session total at the time of writing: 5,000,576 over 1,000 requests.
+Recording it here is the convention this entry introduces.
+
+**Decision**: what a session or an agent run costs is written alongside the
+logs, carried by a hook rather than by a line in `CLAUDE.md`.
+
+| where | what | written by |
+| --- | --- | --- |
+| `audit_log/usage.md` | one row per session, updated in place | `hooks/log-usage.sh` (Stop) |
+| `audit_log/INDEX.md` | a `tokens` column per subagent run | `export.py` |
+| `docs/worklog/*.md` | the cost of the run the entry describes | by hand, like this |
+
+**Why a hook**: the rule has to hold in sessions that have not read this file,
+which is `CLAUDE.md`'s own argument for hooks over prose. A `Stop` hook was the
+right event — the session's cost is only final when the session stops — but it
+is also the most dangerous one available, since exit 2 there refuses to let a
+session finish. So it never blocks: it exits 0 on every path and *writes*
+rather than nagging.
+
+**The number that is not reported**: how much quota is left. Rate-limit state
+appears in a transcript only on a refusal — `status:"rejected"` with `resetsAt`
+— and never while requests are being served. Every such record in this
+session's transcript is a rejection; there is no "still fine" record to read.
+An estimate here would be trusted right up to the moment the session stopped
+working, so `scripts/usage.sh` prints `remaining: unmeasurable` instead.
+
+**Cache reads are excluded** from every one of these figures. Each request
+re-reads the whole context, so counting them gives context size × turns: 378
+million for this session against 4.9 million of actual work. The larger number
+is real but answers a different question.
+
+**Two mistakes made while building this, both the same mistake**:
+
+- The first `doctor.sh` check pointed the hook at a *missing* transcript. The
+  hook stops at its "file is missing" guard before reaching the `calls === 0`
+  guard, so the check passed while that guard was deleted. Fixed by probing
+  with a transcript that exists and carries no usage — verified by deleting
+  the guard again and watching the check fail.
+- The same check's second condition grepped for `doctor-probe`, but the hook
+  truncates session ids to 8 characters, so it could never match. A dead
+  assertion sitting next to a live one, passing for the wrong reason.
+
+**Open**: `95,865` is what this session's harness reported for the `score`
+subagent; `export.py` computes `179,468` for the same run. The breakdown is
+output 14,533, cache writes 164,839, fresh input 96, cache reads 3,106,928 —
+no combination of which is 95,865. The harness uses an accounting that cannot
+be reconstructed from the transcript, so the two numbers are not comparable and
+the index does not claim to match it.

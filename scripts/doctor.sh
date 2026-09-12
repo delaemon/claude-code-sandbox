@@ -93,7 +93,7 @@ esac
 
 echo
 echo "hooks"
-for h in session-start block-secrets typecheck; do
+for h in session-start block-secrets typecheck log-usage; do
   [ -x ".claude/hooks/$h.sh" ] && ok "$h.sh executable" || bad "$h.sh missing or not executable"
 done
 
@@ -123,6 +123,33 @@ check_hook "block-secrets allows source"     block-secrets \
   '{"tool_name":"Write","tool_input":{"file_path":"'"$repo"'/puyopuyo/src/main.ts"}}' 0
 check_hook "typecheck ignores non-TypeScript" typecheck \
   '{"tool_name":"Edit","tool_input":{"file_path":"'"$repo"'/README.md"}}' 0
+
+# The usage log must never block a session from finishing, and must never
+# record a session it could not measure. The second is the one worth asserting:
+# a row of zeros and a transcript that could not be read would look the same in
+# the log, which is the failure this repository keeps coming back to.
+check_hook "log-usage never blocks a stop"   log-usage \
+  '{"session_id":"doctor-probe","transcript_path":"/nonexistent/t.jsonl"}' 0
+
+# The probe transcript must EXIST and merely carry no usage, or the hook stops
+# at its "file is missing" guard and this check passes without reaching the one
+# it is here to test. The first version of this check made exactly that mistake
+# and stayed green while the guard was removed.
+usage_log="$repo/audit_log/usage.md"
+probe=$(mktemp); printf '{"type":"user"}\n' > "$probe"
+before=$(cat "$usage_log" 2>/dev/null | cksum)
+printf '%s' "{\"session_id\":\"doctor-probe\",\"transcript_path\":\"$probe\"}" \
+  | bash "$repo/.claude/hooks/log-usage.sh" >/dev/null 2>&1
+after=$(cat "$usage_log" 2>/dev/null | cksum)
+rm -f "$probe"
+# The hook truncates the session id to 8 characters, so the row would read
+# `doctor-p`. Grepping for the full name would never match and the assertion
+# would be dead — it was, on the first try.
+if [ "$before" = "$after" ] && ! grep -q 'doctor-p' "$usage_log" 2>/dev/null; then
+  ok "log-usage records nothing when it cannot measure"
+else
+  bad "log-usage wrote a row for a session it could not measure"
+fi
 
 echo
 printf 'checked: %d ok, %d note, %d failed\n' "$pass" "$warn" "$fail"

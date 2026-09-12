@@ -11,6 +11,7 @@ Run:  python3 -m pytest audit_log/test_export.py
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -18,6 +19,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+import export  # noqa: E402
 from export import redact  # noqa: E402
 
 
@@ -119,3 +121,57 @@ def test_surrounding_json_stays_parseable_shape() -> None:
     out, _ = redact(f'{{"a": "{token}", "b": 1}}')
     assert out.count('"') == 6
     assert "\\" not in out
+
+
+# --- token accounting -------------------------------------------------------
+#
+# The index carries what each run cost. The distinction that matters is between
+# a run with no usage records and a run that cost nothing: the second does not
+# happen, so the first must not render as a zero.
+
+
+def test_summarise_sums_output_cache_write_and_fresh_input(tmp_path):
+    t = tmp_path / "agent-abc.jsonl"
+    t.write_text(
+        json.dumps({"message": {"usage": {
+            "output_tokens": 100, "cache_creation_input_tokens": 20,
+            "input_tokens": 3, "cache_read_input_tokens": 999999}}}) + "\n"
+        + json.dumps({"message": {"usage": {
+            "output_tokens": 50, "cache_creation_input_tokens": 5,
+            "input_tokens": 1, "cache_read_input_tokens": 888888}}}) + "\n",
+        encoding="utf-8",
+    )
+    assert export.summarise(t)["tokens"] == 179
+
+
+def test_summarise_excludes_cache_reads(tmp_path):
+    """Cache reads re-read the same context every request; summing them would
+    report a number far larger than the work the run actually did."""
+    t = tmp_path / "agent-abc.jsonl"
+    t.write_text(
+        json.dumps({"message": {"usage": {
+            "output_tokens": 10, "cache_read_input_tokens": 500000}}}) + "\n",
+        encoding="utf-8",
+    )
+    assert export.summarise(t)["tokens"] == 10
+
+
+def test_summarise_reports_none_when_no_usage_recorded(tmp_path):
+    t = tmp_path / "agent-abc.jsonl"
+    t.write_text(json.dumps({"message": {"content": "hi"}}) + "\n", encoding="utf-8")
+    assert export.summarise(t)["tokens"] is None
+
+
+def test_index_renders_missing_tokens_as_dash_not_zero(tmp_path, monkeypatch):
+    monkeypatch.setattr(export, "OUT", tmp_path)
+    export.write_index([
+        {"agent": "a", "lines": 1, "tool_calls": 0, "tokens": None,
+         "redactions": 0, "started": "t", "first_text": "x"},
+        {"agent": "b", "lines": 1, "tool_calls": 0, "tokens": 12345,
+         "redactions": 0, "started": "u", "first_text": "y"},
+    ])
+    body = (tmp_path / "INDEX.md").read_text(encoding="utf-8")
+    assert "| tokens |" in body
+    assert "| - |" in body          # unknown, not zero
+    assert "| 12,345 |" in body
+    assert "| 0 |" not in body.split("|---")[1]

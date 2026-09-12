@@ -13,7 +13,7 @@ sandbox for practising multi-agent development.
 | `puyopuyo/` | The game. The only application code here. |
 | `.claude/` | Hooks and settings — the part of the setup that survives a VM reclaim. |
 | `docs/worklog/` | `CONTRACT.md`, what parallel agents must agree on before they start, and one log per agent run. |
-| `audit_log/` | Redacted transcripts of every agent run, plus the exporter that writes them. |
+| `audit_log/` | Redacted transcripts of every agent run, the exporter that writes them, and `usage.md` — what each session spent. |
 | `.github/workflows/` | CI. |
 
 ## Puyo Puyo (`puyopuyo/`)
@@ -115,6 +115,41 @@ kept every protection looked identical to one that dropped them. Asking "is
 `.env` still refused?" has no such failure mode, and catches a guard quietly
 hollowed out, which no textual check can.
 
+### Token usage is logged, every session
+
+**What a session or an agent run cost is written alongside the logs, always.**
+This is a standing rule on this branch, not a preference of whoever is working
+today, and it is carried by a hook rather than by this paragraph — for the
+reason stated above, that this file is advisory and a hook is executed.
+
+| where | what | written by |
+| --- | --- | --- |
+| `audit_log/usage.md` | one row per session, updated in place | `hooks/log-usage.sh`, on Stop |
+| `audit_log/INDEX.md` | a `tokens` column, one row per subagent run | `audit_log/export.py` |
+| `docs/worklog/*.md` | the cost of the run the entry describes | whoever writes the entry |
+
+One definition throughout: **output + cache writes + fresh input.** Cache reads
+are excluded deliberately. Every request re-reads the whole context, so
+including them reports the context size multiplied by the turn count — in this
+session, 378 million against 4.9 million of actual work.
+
+Two things this must never do:
+
+- **Report a session it could not measure as a session that cost nothing.** If
+  the transcript is unreadable or holds no usage records, no row is written at
+  all. `doctor.sh` asserts this by running the hook against a transcript that
+  exists and carries no usage — the first version of that check used a
+  *missing* path, stopped at an earlier guard, and stayed green while the
+  guard it was meant to protect was removed.
+- **Claim to know how much quota is left.** Nothing records it. Rate-limit
+  state appears in a transcript only on a refusal, never while requests are
+  being served, so `scripts/usage.sh` prints the refusals it can see and says
+  remaining is unmeasurable. A number invented here would be believed exactly
+  until the session stopped working.
+
+`bash scripts/usage.sh --line` prints one line with the delta since the
+previous call, for reporting cost while working.
+
 ## Branch and PR workflow
 
 `puyo-puyo-web` is a long-lived integration branch and **the end of the line**.
@@ -173,6 +208,9 @@ belongs in these files rather than in a prompt.
   in `puyopuyo/` after any edit to a `.ts` file there and **exits 2 on type
   errors**. It exits 0 for other paths, and when `node_modules` is missing, so
   it can never block work before install.
+- `hooks/log-usage.sh` (Stop) — writes this session's token usage into
+  `audit_log/usage.md`. It **exits 0 on every path**: a Stop hook that blocked
+  could stop a session from ever finishing, which is worse than a missing row.
 
 **Hook contract.** The tool call arrives as JSON on stdin. Exit 0 allows it;
 **exit 2 blocks it and feeds stderr back to Claude as the reason**; any other

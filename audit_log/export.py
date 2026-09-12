@@ -118,6 +118,9 @@ def summarise(path: Path) -> dict[str, object]:
     lines = 0
     started: str | None = None
     ended: str | None = None
+    # None until a usage record is seen, so "no usage recorded" and "cost
+    # nothing" render differently. A run that cost nothing does not exist.
+    tokens: int | None = None
 
     for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
         lines += 1
@@ -129,6 +132,17 @@ def summarise(path: Path) -> dict[str, object]:
         if timestamp:
             started = started or timestamp
             ended = timestamp
+        usage = (entry.get("message") or {}).get("usage")
+        if isinstance(usage, dict) and isinstance(usage.get("output_tokens"), int):
+            # Output, cache writes and fresh input. Cache *reads* are left out
+            # on purpose: every request re-reads the whole context, so summing
+            # them across a run reports a number two orders of magnitude larger
+            # than the work done, at a rate that is not what it costs.
+            tokens = (tokens or 0) + sum(
+                usage.get(k, 0) or 0
+                for k in ("output_tokens", "cache_creation_input_tokens", "input_tokens")
+            )
+
         content = (entry.get("message") or {}).get("content")
         if isinstance(content, list):
             for block in content:
@@ -145,6 +159,7 @@ def summarise(path: Path) -> dict[str, object]:
         "agent": path.stem.removeprefix("agent-"),
         "lines": lines,
         "tool_calls": tools,
+        "tokens": tokens,
         "started": started,
         "ended": ended,
         "first_text": first_text,
@@ -158,13 +173,15 @@ def write_index(rows: list[dict[str, object]]) -> None:
         "Regenerated in full by `audit_log/export.py`. Last run "
         f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ')}.",
         "",
-        "| agent | lines | tool calls | redactions | started | opening text |",
-        "|---|---|---|---|---|---|",
+        "| agent | lines | tool calls | tokens | redactions | started | opening text |",
+        "|---|---|---|---|---|---|---|",
     ]
     for row in sorted(rows, key=lambda r: str(r["started"] or "")):
         text = str(row["first_text"]).replace("|", "\\|")
+        tok = row.get("tokens")
+        tok_cell = f"{tok:,}" if isinstance(tok, int) else "-"
         lines.append(
-            f"| `{row['agent']}` | {row['lines']} | {row['tool_calls']} "
+            f"| `{row['agent']}` | {row['lines']} | {row['tool_calls']} | {tok_cell} "
             f"| {row['redactions']} | {row['started'] or '-'} | {text} |"
         )
     (OUT / "INDEX.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
