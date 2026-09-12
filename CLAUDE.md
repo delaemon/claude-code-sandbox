@@ -104,3 +104,34 @@ and one it should allow before committing it.
 Prefer a hook over an instruction in this file when something must happen every
 time: this file is advisory and can be missed, whereas hooks are executed by the
 harness.
+
+### Pending: does `enabledPlugins` reach a cloud session?
+
+`settings.json` registers the official marketplace via `extraKnownMarketplaces`
+and enables `claude-code-setup@claude-plugins-official`. This is a probe, not a
+dependency — nothing in this repo needs that plugin, and its one skill is
+read-only. It is here to settle a question the docs leave open.
+
+The docs say two things that pull in opposite directions:
+
+- *"declare the plugin under `enabledPlugins` in `.claude/settings.json` for
+  cloud sessions"* — so committing it is the documented route.
+- *"As of v2.1.195, adding the marketplace doesn't install plugins that come
+  from an external source … doesn't load until the team member installs it"* —
+  and a GitHub-hosted marketplace is an external source.
+
+Which one wins in a cloud session can only be observed at session start, so
+**check this at the start of the next session on this repo**:
+
+- **Loaded** — a skill named `claude-code-setup:claude-automation-recommender`
+  appears in the available skills. Committing plugins works here; replace the
+  probe with a plugin that earns its place (`pr-review-toolkit` and
+  `commit-commands` are the plausible candidates for this repo; `typescript-lsp`
+  is not — cloud sessions don't start plugin language servers).
+- **Not loaded** — the plugin is reported as not installed, with a
+  `claude plugin install` command to run. Then committed plugins only reach
+  local CLI sessions, and the two keys should be dropped from `settings.json`
+  rather than left as decoration.
+
+Record the answer here either way and delete this section: an experiment nobody
+wrote down gets run again.
