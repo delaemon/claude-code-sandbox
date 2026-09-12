@@ -9,3 +9,8 @@ build/
 .env
 f1map/cache/
 f1map/data_cache/
+
+# Node (puyopuyo/)
+node_modules/
+*.tsbuildinfo
+.vite/

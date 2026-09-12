@@ -1,0 +1,31 @@
+name: CI
+
+# push is pinned to puyo-puyo-web: the repository default branch is a leftover
+# session branch, so a default-branch trigger would never fire for this project.
+# pull_request is left unfiltered on purpose — it would otherwise miss the final
+# puyo-puyo-web -> default-branch PR, whose base is not puyo-puyo-web.
+on:
+  pull_request:
+  push:
+    branches: [puyo-puyo-web]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: puyopuyo
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: puyopuyo/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
