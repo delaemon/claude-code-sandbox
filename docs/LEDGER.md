@@ -20,7 +20,7 @@ happening again.
 | 3 | Colour tests passed when two palette entries were swapped — they asserted against the same palette they tested | `scripts/mutate.mjs` | yes |
 | 4 | `agent-config-diff.sh` reported "no files changed" on a PR changing four, because `git diff` exited 128 into `/dev/null` | `scripts/agent-config-diff.sh` | yes |
 | 5 | The config gate did not watch `CODEOWNERS` — the list of exactly what it is about | `scripts/agent-config-diff.sh` | yes |
-| 6 | The usage log rewrote itself every turn, leaving the tree permanently dirty | `rounding still holds` | yes |
+| 6 | The usage log rewrote itself every turn, leaving the tree permanently dirty | `scripts/churn-check.mjs` | yes |
 | 7 | A `doctor.sh` probe used a *missing* transcript, stopped at an earlier guard, and stayed green while the guard it protected was deleted | `log-usage records nothing when it cannot measure` | yes |
 | 8 | CLAUDE.md claimed exit 0 could not reach Claude; it can, via stdout JSON, and the error cost a tool call every turn | `log-usage returns the usage line as Stop additionalContext` | yes |
 | 10 | `ledger.sh` searched doctor.sh for a label including its surrounding quotes, so an interpolated label read as a missing check | `scripts/ledger.sh` | yes |
@@ -34,6 +34,10 @@ happening again.
 | 16 | `CLAUDE.md` named a `grep` as "the check" keeping clocks out of `src/`; nothing ran it, and a naive version would have false-positived on the files describing the rule in prose | `scripts/clock-boundary.mjs` | yes |
 | 17 | `agent-config-diff.sh` exited 0 when no base ref existed, so `gates.sh` printed `ok` for a check that never looked | `scripts/gates.sh` | yes |
 | 18 | The ledger's "verified by breaking" column was a hand-written claim; nothing re-ran those breakages, so a weakened check would keep reading as caught | `evals/run.sh` | yes |
+| 19 | The mutation runner wrote each mutant into the working tree; a Stop hook commits every turn, and a commit was nearly made with a mutant staged | `scripts/mutate.mjs` | yes |
+| 20 | It counted any non-zero exit as a kill, so a mutant that only broke the parser, or hung, reported as a confident kill with nothing asserted | `scripts/mutate.mjs` | yes |
+| 21 | `--only` with a missing or empty value selected every mutant, so a run believed narrow returned green for the whole suite | `scripts/mutate.mjs` | yes |
+| 22 | The churn check compared two `cksum` reads of a file that did not exist, and two empty strings compare equal | `scripts/churn-check.mjs` | yes |
 
 ## Closed since, and how
 
@@ -65,10 +69,25 @@ target text is gone, when no mutants are selected, and when the suite is already
 failing. All three verified, and the fourth — a surviving mutant reporting
 exit 1 — verified by deleting the colour assertions.
 
-**6 is closed by a `doctor.sh` case** that runs the hook twice against
-transcripts 20,000 tokens apart, above the worst turn measured on this session,
-and requires `usage.md` byte-identical. Verified by putting the granularity back
-to 10,000 and watching it fail.
+**6 is closed by `scripts/churn-check.mjs`** — but not by the first attempt,
+which is rows 22 and the three beside it. That version lived inside `doctor.sh`
+and failed four ways at once: it reported success when the hook was deleted
+(two `cksum` reads of a missing file are both empty, and empty equals empty),
+when the column it measures was deleted, missed any tightening under 12.5x
+because its probe sat exactly on a 500,000 boundary, and was built with
+`python3` against this repository's own rule, skipping invisibly without it.
+
+The replacement asserts a positive before comparing anything, runs three probes
+straddling boundaries so a granularity of 250,000 or tighter is caught, and is
+node only. Every one of those four failures was found by the `verifier` subagent
+on its first run, and each was reproduced here before being fixed.
+
+**19 through 21** are the same review, on `mutate.mjs`. It mutated the working
+tree, which is not theoretical in a session that commits on a Stop hook: a
+commit was nearly made with `ArrowLeft: 'moveRight'` staged. Mutants run in a
+throwaway copy now, with `node_modules` symlinked. "Killed" means the suite
+reported a failed test, not that the run exited non-zero — a distinction that
+immediately caught a new mutant of mine which hung instead of failing.
 
 ## Open rows
 

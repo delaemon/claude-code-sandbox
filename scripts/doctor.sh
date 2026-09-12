@@ -252,37 +252,17 @@ if [ -s "$brk_probe" ]; then
 fi
 rm -rf "$brk_dir"
 
-# Rounding is what stops usage.md changing on every stop, and nothing asserted
-# that it still does. A future edit tightening the granularity would bring the
-# churn back silently -- ledger row 6, open until now. Two runs a realistic turn
-# apart must leave the file byte-identical.
-churn_dir=$(mktemp -d)
-python3 - "$churn_dir" <<'CHURN' 2>/dev/null || node -e 'process.exit(0)'
-import json, sys
-d = sys.argv[1]
-u = json.dumps({"message": {"usage": {"output_tokens": 900,
-     "cache_creation_input_tokens": 4100, "input_tokens": 0}}})
-open(f"{d}/a.jsonl", "w").write("\n".join([u] * 1000) + "\n")
-# +20,000 tokens: above the worst turn measured on this session.
-open(f"{d}/b.jsonl", "w").write("\n".join([u] * 1004) + "\n")
-CHURN
-if [ -s "$churn_dir/a.jsonl" ]; then
-  for f in a b; do
-    printf '{"session_id":"churn","transcript_path":"%s"}' "$churn_dir/$f.jsonl" \
-      | USAGE_LOG="$churn_dir/usage.md" TURNS_LOG="$churn_dir/turns.jsonl" \
-        SUBAGENT_CACHE="$churn_dir/c.json" \
-        bash "$repo/.claude/hooks/log-usage.sh" >/dev/null 2>&1
-    eval "churn_$f=\$(cksum < \"$churn_dir/usage.md\")"
-  done
-  if [ "$churn_a" = "$churn_b" ]; then
-    ok "usage.md unchanged across a normal turn (rounding still holds)"
-  else
-    bad "usage.md changed on a 20,000-token turn — the churn is back"
-  fi
-else
-  note "churn check skipped — no python3 to build the probe transcripts"
-fi
-rm -rf "$churn_dir"
+# Rounding is the only thing stopping usage.md changing on every stop. The first
+# version of this check lived here, in bash with a python3 probe, and failed
+# four ways at once -- it passed when the hook was deleted, when the column it
+# measures was deleted, missed any tightening under 12.5x, and skipped silently
+# without python3. It is scripts/churn-check.mjs now.
+churn_out=$(node "$repo/scripts/churn-check.mjs" 2>&1); churn_code=$?
+case $churn_code in
+  0) ok "usage.md holds still across an ordinary turn" ;;
+  1) bad "usage.md churns — $(printf '%s' "$churn_out" | tail -1)" ;;
+  *) bad "the churn check could not run — $(printf '%s' "$churn_out" | head -1)" ;;
+esac
 
 prod_after=$(cat "$repo/audit_log/turns.jsonl" 2>/dev/null | cksum)
 if [ "$prod_before" = "$prod_after" ]; then

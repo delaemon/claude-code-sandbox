@@ -27,14 +27,14 @@ const MUTANTS = [
     replace: "const style = styleFor('red');",
   },
   {
-    name: "board-transposed",
-    claim: "the geometry tests notice x and y swapped in cellRect",
+    name: "cellrect-transposed",
+    claim: "the geometry tests notice x and y swapped in the pixel mapping",
     file: "puyopuyo/src/render/geometry.ts",
     find: "    x: layout.board.x + x * layout.cell,",
     replace: "    x: layout.board.x + y * layout.cell,",
   },
   {
-    name: "hidden-row-ignored",
+    name: "hidden-row-offset-dropped",
     claim: "the geometry tests notice the hidden-row offset being dropped",
     file: "puyopuyo/src/render/geometry.ts",
     find: "    y: layout.board.y + (y - layout.hiddenRows) * layout.cell,",
@@ -47,12 +47,81 @@ const MUTANTS = [
     find: "export function chainPower(chain: number): number {",
     replace: "export function chainPower(chain: number): number {\n  return 0;",
   },
+  // --- the layers the first four never reached, and the two conventions
+  // CLAUDE.md singles out as failing quietly.
+  {
+    name: "hidden-row-pops",
+    claim: "the chain rules notice row 0 becoming poppable",
+    file: "puyopuyo/src/core/resolve.ts",
+    find: "  if (hiddenRows <= 0) return board;",
+    replace: "  return board;",
+  },
+  {
+    name: "gravity-does-not-fall",
+    claim: "the gravity tests notice cells no longer settling",
+    file: "puyopuyo/src/core/gravity.ts",
+    find: "        next[write]![x] = cell;",
+    replace: "        next[y]![x] = cell;",
+  },
+  {
+    // Not DAS: setting the delay to 1e9 made the suite hang rather than fail,
+    // which the run below reports as BROKEN rather than killed -- correctly, but
+    // it is a mutant that tests nothing and costs a timeout. The key map fails
+    // fast instead.
+    name: "arrow-keys-swapped",
+    claim: "the keyboard tests notice left and right exchanged",
+    file: "puyopuyo/src/input/keyboard.ts",
+    find: "  ArrowLeft: 'moveLeft',",
+    replace: "  ArrowLeft: 'moveRight',",
+  },
 ];
 
-const only = process.argv.includes("--only")
-  ? process.argv[process.argv.indexOf("--only") + 1] : null;
+// `--only` with nothing after it, or an empty string, used to select every
+// mutant: `!only` was true and the filter kept them all, so a caller who
+// believed the run was narrow got a green for the whole suite.
+let only = null;
+if (process.argv.includes("--only")) {
+  only = process.argv[process.argv.indexOf("--only") + 1];
+  if (!only) {
+    console.error("--only needs a value. Refusing to silently select everything.");
+    process.exit(2);
+  }
+}
 
 const repo = path.resolve(path.dirname(process.argv[1]), "..");
+
+/**
+ * Mutations run in a copy, never in the working tree.
+ *
+ * The first version wrote each mutant into puyopuyo/src and restored it after.
+ * A `finally` covered an interrupt, but not the window itself: while a mutant
+ * is applied the working tree holds deliberately broken code, and this session
+ * commits on a Stop hook that fires every turn. The two overlapped -- a commit
+ * was very nearly made with `ArrowLeft: 'moveRight'` staged. A check that can
+ * ship the damage it creates is worse than no check.
+ *
+ * node_modules is 52 MB and identical, so it is symlinked rather than copied.
+ */
+function makeWorkspace() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mutate-"));
+  const src = path.join(repo, "puyopuyo");
+  const dst = path.join(dir, "puyopuyo");
+  fs.mkdirSync(dst, { recursive: true });
+  for (const entry of ["src", "tests", "package.json", "tsconfig.json",
+                       "vitest.config.ts", "index.html"]) {
+    const from = path.join(src, entry);
+    if (fs.existsSync(from)) fs.cpSync(from, path.join(dst, entry), { recursive: true });
+  }
+  const modules = path.join(src, "node_modules");
+  if (!fs.existsSync(modules)) {
+    console.error("puyopuyo/node_modules is missing — cannot run the suite.");
+    console.error("Refusing to report that as every mutant dying.");
+    fs.rmSync(dir, { recursive: true, force: true });
+    process.exit(2);
+  }
+  fs.symlinkSync(modules, path.join(dst, "node_modules"));
+  return { dir, puyopuyo: dst };
+}
 const applicable = MUTANTS.filter((m) => !only || m.name.includes(only));
 
 if (applicable.length === 0) {
@@ -60,9 +129,12 @@ if (applicable.length === 0) {
   process.exit(2);
 }
 
+const ws = makeWorkspace();
+process.on("exit", () => { try { fs.rmSync(ws.dir, { recursive: true, force: true }); } catch {} });
+
 // The suite must pass unmutated, or a mutant "killing" it proves nothing.
 try {
-  execSync("npm test --silent", { cwd: path.join(repo, "puyopuyo"), stdio: "pipe" });
+  execSync("npm test --silent", { cwd: ws.puyopuyo, stdio: "pipe" });
 } catch {
   console.error("The suite fails before any mutation. Nothing here can be trusted.");
   process.exit(2);
@@ -70,7 +142,7 @@ try {
 
 let survived = 0;
 for (const m of applicable) {
-  const target = path.join(repo, m.file);
+  const target = path.join(ws.dir, m.file);
   let original;
   try { original = fs.readFileSync(target, "utf8"); } catch {
     console.error(`  MISS  ${m.name}: ${m.file} is gone — the mutant cannot be applied`);
@@ -90,15 +162,47 @@ for (const m of applicable) {
     process.exit(2);
   }
 
-  fs.writeFileSync(target, mutated);
-  let killed = false;
+  // Restore in `finally`: the mutant is written into the real working tree, and
+  // an interrupt between writing and restoring would leave it there.
+  let output = "", threw = false;
   try {
-    execSync("npm test --silent", { cwd: path.join(repo, "puyopuyo"), stdio: "pipe" });
-  } catch { killed = true; }
-  fs.writeFileSync(target, original);
+    fs.writeFileSync(target, mutated);
+    try {
+      output = execSync("npm test", {
+        cwd: ws.puyopuyo, stdio: "pipe", encoding: "utf8",
+        // A mutant can hang the suite rather than fail it -- setting a DAS
+        // delay to 1e9 did. Without a bound that stalls every caller of this,
+        // gates.sh included.
+        timeout: 180_000,
+      });
+    } catch (e) {
+      threw = true;
+      output = `${e.stdout || ""}${e.stderr || ""}`;
+    }
+  } finally {
+    // The copy is thrown away either way; restoring keeps each mutant
+    // independent of the last.
+    fs.writeFileSync(target, original);
+  }
 
-  if (killed) {
+  // A non-zero exit is not a kill. A mutant that only breaks the parser, or
+  // names an undefined identifier, makes the run fail without any test having
+  // asserted on the behaviour the mutant claims to test -- and would report as
+  // a confident kill. So the output has to show the suite running and reporting
+  // failed tests.
+  const reported = /Tests\s+\d+\s+failed/.test(output);
+  const ran = /Test Files\s+\d+/.test(output);
+  if (threw && reported) {
     console.log(`  killed   ${m.name}`);
+  } else if (threw && !ran) {
+    console.error(`  BROKEN   ${m.name}: the suite never reported results, so`);
+    console.error(`           nothing asserted on its claim. The mutant does not`);
+    console.error(`           compile, or it hangs rather than failing.`);
+    process.exit(2);
+  } else if (threw) {
+    console.error(`  BROKEN   ${m.name}: the run failed without reporting a failed`);
+    console.error(`           test, so nothing asserted on its claim.`);
+    process.exit(2);
   } else {
     console.log(`  SURVIVED ${m.name} — ${m.claim}`);
     survived += 1;
