@@ -126,15 +126,33 @@ otherwise. **Write new checks the same way.**
 
 ### Token usage is logged, every session
 
-**What a session or an agent run cost is written alongside the logs, always** —
-`audit_log/usage.md` (per session, by `hooks/log-usage.sh` on Stop),
-`audit_log/INDEX.md` (per subagent run, by `export.py`), and the `docs/worklog/`
-entry describing the run. One definition throughout: **output + cache writes +
-fresh input**, never cache reads, which would report the context size times the
-turn count rather than the work.
+**What a session or an agent run cost is written alongside the logs, always**,
+and **shown in the conversation every turn**. One definition throughout: output
++ cache writes + fresh input, never cache reads, which would report the context
+size times the turn count rather than the work.
 
-Each file explains its own rounding; `docs/LEDGER.md` rows 6, 12 and 13 carry
-why it is rounded at all. `bash scripts/usage.sh --line` gives exact numbers.
+| where | what | written by |
+| --- | --- | --- |
+| `audit_log/turns.jsonl` | one line per stop, **append-only**, numbers only | `hooks/log-usage.sh` |
+| `audit_log/usage.md` | one rounded row per session | the same hook |
+| `audit_log/INDEX.md` | a `tokens` column per subagent run | `export.py` |
+| `docs/worklog/*.md` | the cost of the run an entry describes | by hand |
+
+**Per-turn detail goes in `turns.jsonl` because it appends.** The churn that
+forced rounding came from rewriting a row in place and re-sorting it, so the
+file changed on every stop for reasons unrelated to the numbers; an append adds
+one line. `usage.md` stays rounded so the durable summary is not fifty rows of
+one session. `docs/LEDGER.md` rows 6, 12 and 13 carry that history.
+
+**The line returns to the conversation on every stop.** It was once narrowed to
+threshold crossings on a suspicion of a hook talking itself into a loop — never
+diagnosed, and it removed something that had been asked for. A rate breaker
+targets the runaway instead: five stops inside a minute is faster than a person,
+so the line goes quiet and `turns.jsonl` keeps recording.
+
+**Subagent totals cover only runs that left a transcript**, and the line says
+how many those are. `agent_transcript_path` names where a transcript would go,
+not where one is.
 
 **Never claim to know how much quota is left.** Nothing records it: rate-limit
 state reaches a transcript only on a refusal, never while requests are being
