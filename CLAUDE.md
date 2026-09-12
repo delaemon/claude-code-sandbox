@@ -32,21 +32,25 @@ silently produces a game that almost works.
 
 ## Branch and PR workflow
 
-`puyo-puyo-web` is a long-lived integration branch. Work happens on disposable
-session branches (`claude/<slug>-<suffix>`) cut from it, which are merged back
-via pull request.
+`puyo-puyo-web` is a long-lived integration branch and **the end of the line**.
+Work happens on disposable session branches (`claude/<slug>-<suffix>`) cut from
+it, which are merged back via pull request.
 
 - **Open every PR with `base: puyo-puyo-web`.** GitHub resets the base dropdown
   to the repository default on every new PR, so this must be set explicitly each
   time — it is the easiest mistake to make in this layout.
+- **Nothing is ever merged into the default branch.** This repository is a
+  sandbox for practising multi-agent development, so `puyo-puyo-web` is where
+  the work stops. Do not open a PR against the default branch, and do not treat
+  one as owed at the end of the project.
 - **The repository default branch is `claude/getting-started-1olkod`, not
-  `main`.** It is a leftover session branch that ended up as the default. Only
-  the final `puyo-puyo-web` → default PR should target it.
+  `main`.** It is a leftover session branch that ended up as the default. It is
+  only relevant as the thing a PR must *not* accidentally target.
 - When the base advances, bring it in with `git merge puyo-puyo-web`. Do **not**
   rebase: session branches are already pushed, and rewriting their history
   breaks any checkout that has them.
-- This layout adds one PR that is easy to forget: `puyo-puyo-web` → the default
-  branch, once the project is done.
+- Because nothing leaves `puyo-puyo-web`, changes on it — including deleting
+  whole projects — carry no consequence for any other branch.
 
 ## Cloud session constraints
 
@@ -131,6 +135,9 @@ One job on Node 22: `npm ci`, `npm run typecheck`, `npm test`, all with
 
 The `push` trigger names `puyo-puyo-web` explicitly. A workflow that triggers on
 the default branch would never run here, because the default branch is a
-leftover session branch (see above) that nothing is pushed to. The
-`pull_request` trigger is deliberately left unfiltered: restricting it to base
-`puyo-puyo-web` would skip the one PR that targets the default branch.
+leftover session branch (see above) that nothing is pushed to.
+
+The `pull_request` trigger is left unfiltered. The original reason — catching a
+final PR against the default branch — was wrong, since no such PR is ever
+opened. Unfiltered is kept anyway because it is simpler and checks every PR in
+the repository, not because that PR exists.

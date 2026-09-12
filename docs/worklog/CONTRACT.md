@@ -237,3 +237,23 @@ Vitest runs in Node, with no canvas and no browser.
 
 Do not reach for a browser-rendering test this round. `npm run build` succeeding
 plus the tests above is the bar.
+
+## Corrected: `puyo-puyo-web` is the end of the line
+
+An earlier version of CLAUDE.md said this layout owed a final
+`puyo-puyo-web` → default-branch pull request. It does not. This repository is a
+sandbox for practising multi-agent development; nothing is ever merged into the
+default branch, and no PR should ever target it.
+
+Two things followed from the wrong version and are now void:
+
+- The worry that deleting a project on `puyo-puyo-web` would propagate to the
+  default branch. It cannot. Changes here reach no other branch.
+- The stated reason for leaving CI's `pull_request` trigger unfiltered. The
+  trigger stays unfiltered because it is simpler, not because of a PR that
+  never happens.
+
+Worth noting as a memory failure: the wrong rule survived several rounds
+because it was written down, read back, and acted on as established fact. A
+recorded decision is only as good as its source, and this one came from me
+inferring a convention rather than from anyone stating it.
