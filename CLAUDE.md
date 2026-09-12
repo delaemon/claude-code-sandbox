@@ -13,7 +13,7 @@ sandbox for practising multi-agent development.
 | `puyopuyo/` | The game. The only application code here. |
 | `.claude/` | Hooks and settings — the part of the setup that survives a VM reclaim. |
 | `docs/worklog/` | `CONTRACT.md`, what parallel agents must agree on before they start, and one log per agent run. |
-| `audit_log/` | Redacted transcripts of every agent run, plus the exporter that writes them. |
+| `audit_log/` | Redacted transcripts of every agent run, the exporter that writes them, and `usage.md` — what each session spent. |
 | `.github/workflows/` | CI. |
 
 ## Puyo Puyo (`puyopuyo/`)
@@ -37,7 +37,7 @@ hard to test is pushed outward, and `main.ts` absorbs all of it.**
 | `src/core/` | Board, gravity, groups, chain resolution. Plain data in and out. No DOM, no timers, no randomness. |
 | `src/game/` | `step(state, input)`. Time arrives as `tick(ms)`; the queue's `rng` is injected. |
 | `src/score/` | Scoring over a `ResolveResult`. Depends on `core` and nothing else. |
-| `src/input/` | Keyboard with DAS/ARR. Auto-repeat advances via `advance(ms)`, never a timer. |
+| `src/input/` | Keyboard with DAS/ARR, and touch gestures. Both advance via `advance(ms)`, never a timer; `combineInputs` presents them to the loop as one. |
 | `src/render/` | Geometry and drawing. Takes state and a context. |
 | `src/main.ts` | **The only file that may read a clock or generate randomness.** |
 
@@ -94,6 +94,75 @@ Follow from this when adding to the harness:
   available, and still refuses.
 - **Add a case to `doctor.sh`** for anything new that could differ between the
   two.
+
+### Changes to the agent's own behaviour
+
+`.claude/`, `CLAUDE.md`, `scripts/`, `.github/`, `.devcontainer/` and
+`docs/worklog/CONTRACT.md` decide what the agent may do and what the next
+session believes. `scripts/agent-config-diff.sh` reports every change to them
+into the pull request's summary, so merging one unknowingly is not possible.
+
+It **fails only when a guard is weaker than on the base** — a broad new
+permission, a hook unwired or deleted, `bypassPermissions`, a deny rule gone,
+or the secret guard no longer refusing `.env`. Adding a guard never blocks. The
+asymmetry is deliberate: legitimate changes to these files are constant, and a
+check that fails on all of them gets ignored.
+
+The weakening checks compare **effective state and behaviour, never diff
+lines**. The first version matched removed lines and failed on its own hooks,
+because rewriting a hook deletes every line it then re-adds — a rewrite that
+kept every protection looked identical to one that dropped them. Asking "is
+`.env` still refused?" has no such failure mode, and catches a guard quietly
+hollowed out, which no textual check can.
+
+### Token usage is logged, every session
+
+**What a session or an agent run cost is written alongside the logs, always.**
+This is a standing rule on this branch, not a preference of whoever is working
+today, and it is carried by a hook rather than by this paragraph — for the
+reason stated above, that this file is advisory and a hook is executed.
+
+| where | what | written by |
+| --- | --- | --- |
+| `audit_log/usage.md` | one row per session, updated in place, **rounded** | `hooks/log-usage.sh`, on Stop |
+| `audit_log/INDEX.md` | a `tokens` column, one row per subagent run | `audit_log/export.py` |
+| `docs/worklog/*.md` | the cost of the run the entry describes | whoever writes the entry |
+
+One definition throughout: **output + cache writes + fresh input.** Cache reads
+are excluded deliberately. Every request re-reads the whole context, so
+including them reports the context size multiplied by the turn count — in this
+session, 378 million against 4.9 million of actual work.
+
+Two things this must never do:
+
+- **Report a session it could not measure as a session that cost nothing.** If
+  the transcript is unreadable or holds no usage records, no row is written at
+  all. `doctor.sh` asserts this by running the hook against a transcript that
+  exists and carries no usage — the first version of that check used a
+  *missing* path, stopped at an earlier guard, and stayed green while the
+  guard it was meant to protect was removed.
+- **Claim to know how much quota is left.** Nothing records it. Rate-limit
+  state appears in a transcript only on a refusal, never while requests are
+  being served, so `scripts/usage.sh` prints the refusals it can see and says
+  remaining is unmeasurable. A number invented here would be believed exactly
+  until the session stopped working.
+
+**The logged figures are rounded on purpose.** Written exactly, `usage.md`
+changed on every stop: a tracked file permanently dirty, and a "commit your
+changes" warning every turn. It bought no durability either — an uncommitted
+row dies with the VM exactly as a missing one does, so only the committed value
+ever mattered. Rounded to 500,000, the file changes about once in fifty
+turns and each change means a real threshold was crossed.
+
+The granularity is measured, not guessed. This session burned 3,000-32,000
+tokens a turn, averaging ~10,000. A first attempt rounded to 10,000 and kept a
+separate output column; output crosses a 10,000 boundary every two or three
+turns, so the warning came straight back. Dropping that column and coarsening
+to 500,000 gives one change per ~15 turns even at the worst rate observed,
+measured by replaying that rate for sixty turns.
+
+`bash scripts/usage.sh --line` prints one line with the delta since the
+previous call, for exact numbers while working.
 
 ## Branch and PR workflow
 
@@ -153,6 +222,9 @@ belongs in these files rather than in a prompt.
   in `puyopuyo/` after any edit to a `.ts` file there and **exits 2 on type
   errors**. It exits 0 for other paths, and when `node_modules` is missing, so
   it can never block work before install.
+- `hooks/log-usage.sh` (Stop) — writes this session's token usage into
+  `audit_log/usage.md`. It **exits 0 on every path**: a Stop hook that blocked
+  could stop a session from ever finishing, which is worse than a missing row.
 
 **Hook contract.** The tool call arrives as JSON on stdin. Exit 0 allows it;
 **exit 2 blocks it and feeds stderr back to Claude as the reason**; any other

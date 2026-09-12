@@ -22,7 +22,7 @@
  */
 
 import { createGame, mulberry32, step, tick, type GameState } from './game/index.js';
-import { createKeyboardInput } from './input/index.js';
+import { combineInputs, createKeyboardInput, createTouchInput } from './input/index.js';
 import { draw, fitLayout, type Layout } from './render/index.js';
 
 /**
@@ -62,7 +62,9 @@ if (context === null) throw new Error('this browser has no 2d canvas context');
 // the narrowing above does not reach into them on its own.
 const ctx: CanvasRenderingContext2D = context;
 
-const input = createKeyboardInput();
+// Both devices at once, so the same page is playable with a keyboard and with
+// a thumb. The loop below never learns which one produced an action.
+const input = combineInputs(createKeyboardInput(), createTouchInput());
 input.attach(window);
 
 let seed = startingSeed();

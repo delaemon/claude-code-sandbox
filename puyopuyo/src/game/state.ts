@@ -65,6 +65,16 @@ export interface Stats {
   readonly chains: number;
   readonly longestChain: number;
   readonly totalCleared: number;
+  /**
+   * Score banked from chains that have finished resolving.
+   *
+   * A running total has to accumulate somewhere, and every layer above this one
+   * is deliberately stateless — `draw` is a pure function of the state it is
+   * handed — so it lives here. A chain still animating is not counted until it
+   * finishes, which is what lets the HUD add only the part it is showing rather
+   * than jumping ahead of the pops on screen.
+   */
+  readonly score: number;
 }
 
 export const EMPTY_STATS: Stats = {
@@ -72,6 +82,7 @@ export const EMPTY_STATS: Stats = {
   chains: 0,
   longestChain: 0,
   totalCleared: 0,
+  score: 0,
 };
 
 /** The fields every phase carries. `baseOf` in `step.ts` copies exactly these. */

@@ -20,7 +20,14 @@ import {
   upcoming,
   type GameState,
 } from '../../src/game/index.js';
-import { cellRect, createLayout, draw, previewCellRect } from '../../src/render/index.js';
+import {
+  PUYO_STYLES,
+  THEME,
+  cellRect,
+  createLayout,
+  draw,
+  previewCellRect,
+} from '../../src/render/index.js';
 import { RecordingContext } from './fake-context.js';
 
 /** Every pair is red/red: `colors[0]` is red, so fixtures can name the colour. */
@@ -161,7 +168,7 @@ describe('draw — HUD and game over', () => {
   it('writes the score and the stat labels', () => {
     const texts = render(started()).texts();
     expect(texts).toContain('NEXT');
-    expect(texts).toContain('LAST CHAIN');
+    expect(texts).toContain('SCORE');
     expect(texts).toContain('PIECES');
     expect(texts).toContain('CLEARED');
     expect(texts).toContain('BEST');
@@ -178,7 +185,7 @@ describe('draw — HUD and game over', () => {
     expect(before).toContain('0');
     // 5 cells * 10 * clamp(chainPower 0 + colourBonus 0 + groupBonus(5) 2) = 100
     expect(after).toContain('100');
-    expect(after).toContain('1 chain');
+    expect(after).toContain('1 chain  +100');
   });
 
   it('draws GAME OVER, the blocked piece dimmed, and nothing dimmed after it', () => {
@@ -232,5 +239,94 @@ describe('draw — purity', () => {
     const rec = render(started());
     expect(rec.count('save')).toBe(rec.count('restore'));
     expect(rec.globalAlpha).toBe(1);
+  });
+});
+
+describe('draw — colour', () => {
+  /**
+   * The suite asserted where things were drawn and how many, never what colour,
+   * so a renderer that painted every puyo the same would have passed.
+   *
+   * What these can and cannot catch is worth being plain about. They assert the
+   * drawing against `PUYO_STYLES`, so they cannot notice a change to the
+   * palette itself — swap two entries and the expectations swap with them.
+   * That is the right scope: the hex values are a design choice, not a
+   * correctness property. What they do catch is the renderer failing to use the
+   * palette per colour, and confirmed by breaking it both ways:
+   *
+   *   styleFor(color) -> styleFor('red')    2 of these fail
+   *   cellRect(l, x, y) -> cellRect(l, y, x)  1 of these fails, plus 2 others
+   */
+
+  /** The fill in force for each puyo body, in draw order. */
+  const puyoFills = (rec: RecordingContext): string[] =>
+    rec.of('arc').map((call) => call.fillStyle);
+
+  it('draws each colour with its own fill', () => {
+    const board = parseBoardBottom('RGBYP.', WIDTH, HEIGHT);
+    // previewCount 0 keeps the preview's reds out of the sample.
+    const rec = render(newGame(board), createLayout({ cell: 20, previewCount: 0 }));
+
+    expect(new Set(puyoFills(rec))).toEqual(
+      new Set([
+        PUYO_STYLES.red.fill,
+        PUYO_STYLES.green.fill,
+        PUYO_STYLES.blue.fill,
+        PUYO_STYLES.yellow.fill,
+        PUYO_STYLES.purple.fill,
+      ]),
+    );
+  });
+
+  it('puts each colour at its own cell, not merely somewhere on the board', () => {
+    const board = parseBoardBottom('RG....', WIDTH, HEIGHT);
+    const l = createLayout({ cell: 20, previewCount: 0 });
+    const rec = render(newGame(board), l);
+    const bottom = HEIGHT - 1;
+
+    const fillAt = (x: number): string | undefined => {
+      const rect = cellRect(l, x, bottom);
+      const cx = rect.x + rect.w / 2;
+      const cy = rect.y + rect.h / 2;
+      return rec
+        .of('arc')
+        .find((call) => Math.abs(call.args[0]! - cx) < 1 && Math.abs(call.args[1]! - cy) < 1)
+        ?.fillStyle;
+    };
+
+    // Transposing or swapping the palette would leave the set above intact and
+    // fail here.
+    expect(fillAt(0)).toBe(PUYO_STYLES.red.fill);
+    expect(fillAt(1)).toBe(PUYO_STYLES.green.fill);
+  });
+
+  it('outlines and highlights a puyo in its own colours', () => {
+    const board = parseBoardBottom('R.....', WIDTH, HEIGHT);
+    const rec = render(newGame(board), createLayout({ cell: 20, previewCount: 0 }));
+
+    // The body's fill is in force at the `arc`; the outline and highlight are
+    // separate `stroke` calls made after `strokeStyle` is set, so they are what
+    // carries the colour — the arc still holds whatever stroke came before it.
+    expect(rec.of('arc')[0]!.fillStyle).toBe(PUYO_STYLES.red.fill);
+
+    const strokes = rec.of('stroke').map((call) => call.strokeStyle);
+    expect(strokes).toContain(PUYO_STYLES.red.stroke);
+    expect(strokes).toContain(PUYO_STYLES.red.shine);
+    // Not the same colour as the body, or the outline would be invisible.
+    expect(PUYO_STYLES.red.stroke).not.toBe(PUYO_STYLES.red.fill);
+  });
+
+  it('paints the backdrop with the theme background', () => {
+    const rec = render(started());
+    expect(rec.of('fillRect')[0]!.fillStyle).toBe(THEME.bg);
+  });
+
+  it('writes the score in the accent colour and the labels dimmed', () => {
+    const texts = render(started()).of('fillText');
+    const styleOf = (s: string): string | undefined =>
+      texts.find((call) => call.text === s)?.fillStyle;
+
+    expect(styleOf('SCORE')).toBe(THEME.dim);
+    expect(styleOf('0')).toBe(THEME.accent);
   });
 });

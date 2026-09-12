@@ -198,6 +198,9 @@ describe('resolving a chain after a lock', () => {
       chains: 1,
       longestChain: 2,
       totalCleared: 9,
+      // step 1 clears 5 (group bonus 2): 5 * 10 * 2 = 100
+      // step 2 clears 4 (chain power 8): 4 * 10 * 8 = 320
+      score: 420,
     });
   });
 

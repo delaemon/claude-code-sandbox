@@ -21,6 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # agent-config-diff.sh compares against the base with a three-dot
+          # range, which needs a merge base. The default depth-1 checkout has
+          # none, and the step silently found nothing.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -39,3 +44,15 @@ jobs:
       - name: Environment contract
         working-directory: .
         run: bash scripts/doctor.sh
+
+      # What this change does to the agent's own behaviour, written to the run
+      # summary so it is on the checks page rather than buried in a log. It
+      # fails only when a guard is weaker than on the base — adding one never
+      # blocks. Needs the base branch, which the default checkout does not
+      # fetch.
+      - name: Agent behaviour review
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        run: |
+          bash scripts/agent-config-diff.sh "${{ github.base_ref }}" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "${PIPESTATUS[0]}"

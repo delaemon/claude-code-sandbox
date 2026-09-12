@@ -253,14 +253,19 @@ function drawHud(ctx: CanvasRenderingContext2D, state: GameState, layout: Layout
   const right = hud.x + hud.w;
   let y = hud.y + small;
 
-  text(ctx, 'LAST CHAIN', hud.x, y, { size: small, color: THEME.dim });
+  text(ctx, 'SCORE', hud.x, y, { size: small, color: THEME.dim });
   y += big + 2;
   text(ctx, String(model.score), hud.x, y, { size: big, color: THEME.accent, weight: 700 });
   y += line;
-  text(ctx, model.chain > 0 ? `${model.chain} chain` : '-', hud.x, y, {
-    size: small,
-    color: THEME.text,
-  });
+  // The chain's own contribution, next to the running total it is climbing
+  // into. "4 chain +2280" says more than either number alone.
+  text(
+    ctx,
+    model.chain > 0 ? `${model.chain} chain  +${model.chainScore}` : '-',
+    hud.x,
+    y,
+    { size: small, color: THEME.text },
+  );
 
   y += line * 1.6;
   for (const [name, value] of [

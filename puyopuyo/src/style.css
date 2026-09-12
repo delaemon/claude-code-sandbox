@@ -134,3 +134,12 @@ kbd {
     font-size: 11px;
   }
 }
+
+/* The touch legend is noise on a machine with a keyboard, and the only legend
+   that means anything on a phone. Coarse pointer is the honest test — a narrow
+   window on a laptop is still a keyboard. */
+.keys .touch { display: none; }
+@media (pointer: coarse) {
+  .keys span:not(.touch) { display: none; }
+  .keys .touch { display: inline; }
+}
