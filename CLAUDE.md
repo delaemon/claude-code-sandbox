@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository structure
 
-This repo contains two independent projects:
+This repo contains three independent projects:
 
 - **Root (`main.py`, `orchestrator.py`, `agents/`, `utils/`)** — a multi-agent coding pipeline that automates the full SDLC using the Anthropic API.
 - **`f1map/`** — a standalone FastAPI + vanilla-JS web app that visualizes F1 race telemetry using FastF1 data. See `f1map/CLAUDE.md` for its commands and architecture.
+- **`puyopuyo/`** — a browser Puyo Puyo game in TypeScript (see below).
 
 They do not share code or dependencies; treat them as separate codebases when making changes.
 
@@ -49,6 +50,23 @@ Task Description
 - Tool set available to agents (`utils/tools.py`): `write_file`, `read_file`, `list_files`, `run_command` (shell, 120s timeout, scoped to the workspace dir), and `finish` (ends the agent's loop with a summary + artifact list).
 - Model and token limit are hardcoded in `agents/base_agent.py` (`MODEL = "claude-sonnet-4-6"`, `MAX_TOKENS = 8192`) — change there, not per-agent.
 - Each agent file (`agents/*_agent.py`, `agents/reporter.py`, `agents/test_runner.py`) defines only a `SYSTEM` prompt and a `tools` list; behavior changes for a given phase mean editing that file's prompt, not `base_agent.py`.
+
+## Puyo Puyo (`puyopuyo/`)
+
+TypeScript + Vite, tested with Vitest; no framework and no runtime dependencies.
+Run everything with `puyopuyo/` as the working directory: `npm ci`, then
+`npm run dev`, `npm test`, `npm run typecheck`, `npm run build`.
+
+`src/core/` is pure — board, gravity, group detection and chain resolution take
+and return plain data, touch no DOM and import nothing from the rendering layer.
+That is what makes the rules testable, so keep new rule logic there and let the
+rendering layer read from it rather than reimplementing it. Board geometry and
+the chain rules are fixed in `docs/worklog/CONTRACT.md`; `board[y][x]` with `y`
+downward is the one convention worth repeating here, because transposing it
+silently produces a game that almost works.
+
+`tsconfig.json` sets `incremental` with its build info under
+`node_modules/.cache/` so a per-edit `typecheck` costs about a second.
 
 ## Branch and PR workflow
 
@@ -94,6 +112,12 @@ that must hold across sessions belongs in these files rather than in a prompt.
   minutes to install and are rarely needed.
 - `hooks/block-secrets.sh` (PreToolUse on `Edit|Write|NotebookEdit`) — blocks
   edits to `.env`, `*.pem`, `*.key` and the session token file.
+- `hooks/typecheck.sh` (PostToolUse on `Edit|Write`) — runs `npm run typecheck`
+  in `puyopuyo/` after any edit to a `.ts` file there, and **exits 2 on type
+  errors**. Exit 2 is not decoration: stderr from a PostToolUse hook that exits
+  0 is discarded, so reporting failure any other way means Claude never sees it.
+  The hook exits 0 without running anything for other paths, and also when
+  `puyopuyo/node_modules` is missing, so it can never block work before install.
 
 Hook contract, for anything added here: the tool call arrives as JSON on stdin;
 exit 0 allows it, **exit 2 blocks it and feeds stderr back to Claude as the
@@ -129,3 +153,19 @@ here whatever the settings say.
 
 `pr-review-toolkit` is enabled: this repo's work runs through pull requests
 against `puyo-puyo-web`, so review agents are the plugin that earns its slot.
+`typescript-lsp` is enabled too, despite the line above: it is dead weight in a
+cloud session but gives inline diagnostics on `puyopuyo/` when the repo is
+opened locally, and being ignored rather than broken here means one committed
+config serves both. In a cloud session `hooks/typecheck.sh` is what actually
+catches type errors.
+
+## CI (`.github/workflows/ci.yml`)
+
+One job on Node 22: `npm ci`, `npm run typecheck`, `npm test`, all with
+`puyopuyo/` as the working directory.
+
+The `push` trigger names `puyo-puyo-web` explicitly. A workflow that triggers on
+the default branch would never run here, because the default branch is a
+leftover session branch (see above) that nothing is pushed to. The
+`pull_request` trigger is deliberately left unfiltered: restricting it to base
+`puyo-puyo-web` would skip the one PR that targets the default branch.
