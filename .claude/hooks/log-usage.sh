@@ -77,6 +77,19 @@ let raw = ""; process.stdin.on("data", (d) => (raw += d)).on("end", () => {
   const row = `| \x60${session}\x60 | ~${n(round(calls, 500))} | `
             + `~${n(round(tokens, 500000))} | ${day} |`;
 
+  // Exit 0 is not a silent channel. The documented structured output for a Stop
+  // hook is JSON on stdout, and additionalContext reaches the reasoning of the
+  // next turn. CLAUDE.md here claimed the opposite -- that exit 0 can say
+  // nothing, which is why typecheck.sh reaches for exit 2 -- and that claim
+  // cost one tool call per turn to report usage the harness now carries free.
+  // No apostrophes in this block: it lives inside node -e with single quotes.
+  const line = `[tok] req ${n(calls)} \u00b7 out+write ${n(tokens)} \u00b7 `
+             + `ctx ${n(ctx)} \u00b7 remaining: unmeasurable (never recorded `
+             + `until a request is refused)`;
+  process.stdout.write(JSON.stringify({
+    hookSpecificOutput: { hookEventName: "Stop", additionalContext: line },
+  }));
+
   const file = "audit_log/usage.md";
   const header = [
     "# Session token usage",
@@ -113,6 +126,6 @@ let raw = ""; process.stdin.on("data", (d) => (raw += d)).on("end", () => {
     fs.writeFileSync(file, header.concat(body).join("\n") + "\n");
   } catch {}
 });
-' 2>/dev/null
+'
 
 exit 0

@@ -145,6 +145,24 @@ rm -f "$probe"
 # The hook truncates the session id to 8 characters, so the row would read
 # `doctor-p`. Grepping for the full name would never match and the assertion
 # would be dead — it was, on the first try.
+# Exit 0 carries a structured channel: JSON on stdout, whose additionalContext
+# reaches the next turn. It is the reason the usage line costs no tool call, so
+# it is asserted rather than assumed.
+real_t=$(ls -t "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1)
+if [ -n "$real_t" ]; then
+  emitted=$(printf '{"session_id":"ctx-probe","transcript_path":"%s"}' "$real_t" \
+    | bash "$repo/.claude/hooks/log-usage.sh" 2>/dev/null)
+  if printf '%s' "$emitted" | node -e '
+      let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+        const c=JSON.parse(s).hookSpecificOutput;
+        process.exit(c.hookEventName==="Stop" && /^\[tok\]/.test(c.additionalContext) ? 0 : 1);
+      })' 2>/dev/null; then
+    ok "log-usage returns the usage line as Stop additionalContext"
+  else
+    bad "log-usage no longer emits additionalContext on exit 0"
+  fi
+fi
+
 if [ "$before" = "$after" ] && ! grep -q 'doctor-p' "$usage_log" 2>/dev/null; then
   ok "log-usage records nothing when it cannot measure"
 else
