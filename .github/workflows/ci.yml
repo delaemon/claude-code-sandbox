@@ -45,6 +45,14 @@ jobs:
         working-directory: .
         run: bash scripts/doctor.sh
 
+      # The ledger pairs every failure this harness has had with the check that
+      # now catches it. It is only worth having if the checks are real, so this
+      # asserts that each one still exists — a removed check means the failure
+      # can happen again, and the table would otherwise still claim it cannot.
+      - name: Failure ledger
+        working-directory: .
+        run: bash scripts/ledger.sh
+
       # What this change does to the agent's own behaviour, written to the run
       # summary so it is on the checks page rather than buried in a log. It
       # fails only when a guard is weaker than on the base — adding one never
