@@ -1,0 +1,217 @@
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink: #16202b; --mute: #5b6b7c; --line: #d3dce5; --bg: #f4f7fa;
+    --card: #ffffff; --accent: #1f6feb; --warn: #b4451a; --good: #14794a;
+  }
+  body {
+    width: 1680px; padding: 40px 44px 30px;
+    font-family: "IPAPGothic", "IPAGothic", sans-serif;
+    background: var(--bg); color: var(--ink); line-height: 1.55;
+  }
+  code, .mono { font-family: "Liberation Mono", monospace; }
+  h1 { font-size: 34px; letter-spacing: -.01em; }
+  .sub { color: var(--mute); font-size: 16px; margin-top: 6px; }
+  .rule { height: 3px; background: var(--ink); margin: 16px 0 22px; }
+  .grid { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 18px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px 18px 18px;
+  }
+  .card > h2 {
+    font-size: 17px; margin-bottom: 4px;
+    display: flex; align-items: baseline; gap: 9px;
+  }
+  .num {
+    font-size: 12px; color: #fff; background: var(--ink);
+    border-radius: 4px; padding: 1px 7px; font-weight: normal;
+  }
+  .lede { font-size: 13.5px; color: var(--mute); margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--mute); font-weight: normal; font-size: 12px; }
+  tr:last-child td { border-bottom: none; }
+  .tag { font-size: 11.5px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+  .t-must { background: #fdecea; color: var(--warn); }
+  .t-may  { background: #eef4fd; color: var(--accent); }
+  .t-never{ background: #e6f4ec; color: var(--good); }
+  .flow {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-size: 13px; margin: 10px 0 12px;
+  }
+  .node {
+    border: 1px solid var(--line); background: #fbfdff;
+    border-radius: 7px; padding: 7px 11px; text-align: center;
+  }
+  .node b { display: block; font-size: 13px; }
+  .node span { font-size: 11.5px; color: var(--mute); }
+  .arrow { color: var(--mute); font-size: 18px; }
+  .exit { display: grid; grid-template-columns: 62px 1fr; gap: 6px 12px; font-size: 13px; margin-top: 6px; }
+  .exit div:nth-child(odd) { font-family: "Liberation Mono", monospace; font-weight: bold; }
+  .e0 { color: var(--good); } .e2 { color: var(--warn); } .ex { color: var(--mute); }
+  .inc { margin-top: 12px; font-size: 12.5px; }
+  .inc li { margin: 7px 0 0 16px; }
+  .ev {
+    font-family: "Liberation Mono", monospace; font-size: 11.5px;
+    background: #16202b; color: #d7e3ee; padding: 7px 9px;
+    border-radius: 5px; margin-top: 5px; white-space: pre; overflow: hidden;
+  }
+  .ev .hi { color: #ff9d73; }
+  .stats { display: flex; gap: 28px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .stat b { font-size: 20px; display: block; }
+  .stat span { font-size: 11.5px; color: var(--mute); }
+  .pill { font-size: 11.5px; color: var(--mute); }
+  .k { font-weight: bold; }
+</style>
+
+<h1>ハーネスエンジニアリング — このリポジトリで確かめたこと</h1>
+<div class="sub">
+  claude-code-sandbox / <span class="mono">puyo-puyo-web</span> ブランチ &nbsp;·&nbsp;
+  エージェントの挙動を「お願い」ではなく「仕組み」で決める
+</div>
+<div class="rule"></div>
+
+<div class="grid">
+
+  <!-- 1 -->
+  <div class="card">
+    <h2><span class="num">1</span>何が生き残るか</h2>
+    <div class="lede">
+      VM は無操作で回収される。会話履歴は戻るが VM は戻らない。<br>
+      <span class="k">永続するのは git にコミットしたものだけ。</span>
+    </div>
+    <table>
+      <tr><th>層</th><th>読まれ方</th><th>剪定</th></tr>
+      <tr>
+        <td><code>CLAUDE.md</code><br><span class="pill">現在有効なルール</span></td>
+        <td>毎セッション<b>全文</b><br><span class="pill">≒600 tok/節</span></td>
+        <td><span class="tag t-must">必須</span></td>
+      </tr>
+      <tr>
+        <td><code>docs/worklog/</code><br><span class="pill">判断と理由</span></td>
+        <td>必要時に読む</td>
+        <td><span class="tag t-may">可</span></td>
+      </tr>
+      <tr>
+        <td><code>audit_log/</code> + git履歴<br><span class="pill">何が起きたか</span></td>
+        <td>事後に検索</td>
+        <td><span class="tag t-never">禁止</span></td>
+      </tr>
+    </table>
+    <div class="inc">
+      <span class="k">連携ログ ≠ 監査ログ。</span>片方は剪定できないと使えず、
+      もう片方は剪定できたら証拠にならない。<b>同じファイルで兼ねられない。</b>
+      <ul>
+        <li>生トランスクリプト 2.6&nbsp;MB &nbsp;→&nbsp; 蒸留したログ 84&nbsp;KB（約 1/30）</li>
+        <li>記録は誤りも同じ効率で永続化する → <b>出典（誰の判断か）を書く</b></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="card">
+    <h2><span class="num">2</span>2環境・1フロー</h2>
+    <div class="lede">スタックは切り替えない。切り替わるのは<b>フィードバックの経路</b>だけ。</div>
+    <div class="flow">
+      <div class="node"><b>クラウド VM</b><span>モバイル / web</span></div>
+      <div class="arrow">→</div>
+      <div class="node" style="background:#eef4fd;border-color:#b9d2f7">
+        <b>PR</b><span>base: puyo-puyo-web</span>
+      </div>
+      <div class="arrow">←</div>
+      <div class="node"><b>dev container</b><span>PC / Node 22</span></div>
+    </div>
+    <table>
+      <tr><th></th><th>クラウド</th><th>dev container</th></tr>
+      <tr><td>型エラー</td><td><code>typecheck.sh</code></td><td>LSP + 同フック</td></tr>
+      <tr><td>PR 作成</td><td>GitHub ツール</td><td><code>gh</code></td></tr>
+      <tr><td>編集の着地</td><td>VM 内（消える）</td><td>実ディスク</td></tr>
+      <tr><td>時計</td><td colspan="2"><code>main.ts</code> のみ（全層共通の境界）</td></tr>
+    </table>
+    <div class="inc">
+      <span class="k">同一性は主張ではなく検査。</span>
+      <code>scripts/doctor.sh</code> が両環境と CI で<b>フックを実際に走らせ終了コードを検証</b>する。
+      <div class="ev">checked: 14 ok, 2 note, <span class="hi">0 failed</span></div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="card">
+    <h2><span class="num">3</span>フック = 強制力</h2>
+    <div class="lede">
+      <code>CLAUDE.md</code> は助言で、見落とされうる。<br>
+      <span class="k">フックはハーネスが実行する。必ず走る。</span>
+    </div>
+    <table>
+      <tr><td><code>SessionStart</code></td><td>依存導入 + ブランチ位置の警告</td></tr>
+      <tr><td><code>PreToolUse</code></td><td><code>.env</code> / <code>*.key</code> の編集を拒否</td></tr>
+      <tr><td><code>PostToolUse</code></td><td><code>.ts</code> 編集後に型チェック</td></tr>
+    </table>
+    <div class="inc" style="margin-top:14px">
+      <span class="k">終了コード契約</span>
+      <div class="exit">
+        <div class="e0">exit 0</div><div>通す。<b>stderr は Claude に届かない</b></div>
+        <div class="e2">exit 2</div><div>ブロック。<b>stderr が理由として届く</b></div>
+        <div class="ex">その他</div><div>エラー表示のみ。止まらない</div>
+      </div>
+      <div style="margin-top:10px">
+        壊れたフックは<b>静かに素通り</b>する。<br>
+        → 止めるケースと通すケースの<b>両方を手で叩いてから</b>コミット。
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="grid" style="margin-top:18px; grid-template-columns: 1.15fr 2.08fr;">
+
+  <!-- 4 -->
+  <div class="card">
+    <h2><span class="num">4</span>マルチエージェント</h2>
+    <div class="lede">
+      サブエージェントは<b>コールドで起動</b>し、互いのログを見られない。
+      共有手段はファイルだけ。
+    </div>
+    <ul class="inc" style="margin-top:0">
+      <li><b>走らせる前に契約を固定。</b>ファイル所有権・盤面の <code>board[y][x]</code>・npm scripts</li>
+      <li><b>並列では相互参照は成立しない。</b>本物になるのは次ラウンドから</li>
+      <li><b>報告は主張であって成果物ではない。</b>差分を読み、挙動を自分で再実行してからコミット</li>
+      <li>権限・設定ファイルの変更は<b>必ず自分で検証</b>（今回 <code>npm install</code> の許可を削除）</li>
+    </ul>
+  </div>
+
+  <!-- 5 -->
+  <div class="card">
+    <h2><span class="num">5</span>実際に起きた事故と、入れた検出</h2>
+    <div class="lede">どれも「動いていないのに、動いているように見えた」。仕組みを足すまで誰も気づけなかった。</div>
+    <table>
+      <tr><th style="width:31%">事故</th><th style="width:34%">なぜ気づけなかったか</th><th>入れた検出</th></tr>
+      <tr>
+        <td>フックが <code>python3</code> 依存。無い環境でシークレット保護が消滅</td>
+        <td>失敗ではなく <b>exit 0 で素通り</b>。ログにも何も出ない</td>
+        <td><code>node</code> へ移行 + パーサ不在でも生入力を照合して拒否。<code>doctor.sh</code> が毎回実行して検証</td>
+      </tr>
+      <tr>
+        <td>マージ済み PR のブランチに commit を継続</td>
+        <td>検出する仕組みが<b>1つも無かった</b></td>
+        <td><code>branch-state.sh</code>：<span class="mono">behind&gt;0 かつ ahead=0</span> → <b>STOP</b>（SessionStart と CI）</td>
+      </tr>
+      <tr>
+        <td>推測した規約が <code>CLAUDE.md</code> に入り「確定事項」化</td>
+        <td>書かれた時点で検証されなくなる</td>
+        <td>訂正を記録 + <b>出典を書く</b>（本人の発言か、推測か）</td>
+      </tr>
+    </table>
+    <div class="ev">$ echo '{"tool_input":{"file_path":".../.env"}}' | bash .claude/hooks/block-secrets.sh
+.claude/hooks/block-secrets.sh: line 10: python3: command not found
+exit=<span class="hi">0</span>   ← .env への書き込みが通っていた</div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><b>190</b><span>puyopuyo tests（時計なし・flake なし）</span></div>
+  <div class="stat"><b>24</b><span>redactor tests（公開リポジトリの防護）</span></div>
+  <div class="stat"><b>6</b><span>サブエージェント実行（全文を監査ログへ）</span></div>
+  <div class="stat"><b>3</b><span>フック（SessionStart / Pre / Post）</span></div>
+  <div class="stat"><b>0</b><span>デフォルトブランチへのマージ（終端は puyo-puyo-web）</span></div>
+</div>
