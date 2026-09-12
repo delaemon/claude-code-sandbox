@@ -57,6 +57,44 @@ Board geometry and the chain rules are fixed in `docs/worklog/CONTRACT.md`.
 `tsconfig.json` sets `incremental` with its build info under
 `node_modules/.cache/`, so a per-edit `typecheck` costs about a second.
 
+## Two environments, one flow
+
+This repository is worked on from two places, and the flow is the same from
+either: **work on a session branch, open a PR against `puyo-puyo-web`, merge.**
+
+| | Cloud session (mobile, web) | Dev container (a machine) |
+| --- | --- | --- |
+| Where it runs | Anthropic-managed VM, reclaimed when idle | Docker on your machine, repo bind-mounted |
+| Setup | none | **Reopen in Container** — `.devcontainer/devcontainer.json` |
+| Node | 22 | 22, pinned to the same major |
+| Opening a PR | the GitHub tools | `gh`, installed by a feature |
+| Type errors surface via | `hooks/typecheck.sh` | the language server, plus the same hook |
+| Edits land | in the VM; lost unless pushed | on your disk immediately |
+
+Everything that makes the flow work is committed, so neither environment needs
+setting up by hand: `.claude/` carries the hooks and settings, `.devcontainer/`
+carries the container, and `.github/workflows/` carries CI.
+
+**`bash scripts/doctor.sh` checks that the environment you are in actually
+satisfies those assumptions.** It reports the toolchain, then runs each hook and
+asserts its exit code, because a hook that works in one environment and quietly
+does nothing in the other is the failure mode that matters here — and one that
+has already happened: the hooks once parsed their input with `python3`, which
+the cloud image has and a container need not, and on a host without it the
+secret guard exited 0 and let `.env` through. CI runs `doctor.sh` too, so drift
+is caught rather than discovered.
+
+Follow from this when adding to the harness:
+
+- **Depend on `node`, not `python3`.** The project is TypeScript, so node exists
+  wherever this repository is usable. Python is optional and only
+  `audit_log`'s tests use it.
+- **A guard that cannot run must not look like a guard that passed.**
+  `block-secrets.sh` falls back to matching its raw input when no parser is
+  available, and still refuses.
+- **Add a case to `doctor.sh`** for anything new that could differ between the
+  two.
+
 ## Branch and PR workflow
 
 `puyo-puyo-web` is a long-lived integration branch and **the end of the line**.
@@ -75,6 +113,11 @@ it and merged back by pull request.
 - When the base advances, bring it in with `git merge puyo-puyo-web`. Do **not**
   rebase: session branches are already pushed, and rewriting their history
   breaks any checkout that has them.
+- **Once your PR is merged, the branch is finished.** Re-cut it from the base
+  before doing anything else — `git fetch origin puyo-puyo-web && git checkout
+  -B <branch> origin/puyo-puyo-web` — rather than committing on top of the
+  merged tip. `scripts/doctor.sh` fails when every commit on the branch is
+  already in the base, which is exactly that state.
 - Because nothing leaves this branch, changes on it carry no consequence
   anywhere else.
 
@@ -103,7 +146,9 @@ belongs in these files rather than in a prompt.
 - `hooks/session-start.sh` (SessionStart) — installs dependencies so a fresh
   container is usable immediately.
 - `hooks/block-secrets.sh` (PreToolUse on `Edit|Write|NotebookEdit`) — blocks
-  edits to `.env`, `*.pem`, `*.key` and the session token file.
+  edits to `.env`, `*.pem`, `*.key` and the session token file. When no JSON
+  parser is available it matches the raw payload instead and still refuses,
+  over-blocking rather than failing open.
 - `hooks/typecheck.sh` (PostToolUse on `Edit|Write`) — runs `npm run typecheck`
   in `puyopuyo/` after any edit to a `.ts` file there and **exits 2 on type
   errors**. It exits 0 for other paths, and when `node_modules` is missing, so

@@ -19,12 +19,27 @@ elif [ -f puyopuyo/package-lock.json ]; then
   fi
 fi
 
-# audit_log/test_export.py is the only Python left here, so pytest is installed
-# as a single package rather than from a requirements file.
-if ! python3 -c 'import pytest' 2>/dev/null; then
-  if python3 -m pip install --quiet --disable-pip-version-check pytest 2>/dev/null; then
-    echo "audit_log: pytest ok"
-  else
-    echo "audit_log: pytest install FAILED — 'pip install pytest' to run its tests"
+# audit_log/test_export.py is the only Python left here. Python is optional in
+# this repository — nothing else needs it and the hooks deliberately do not — so
+# a host without it is not a problem worth shouting about, and this stays quiet
+# rather than failing the session start.
+if command -v python3 >/dev/null 2>&1; then
+  if ! python3 -c 'import pytest' 2>/dev/null; then
+    python3 -m pip install --quiet --disable-pip-version-check pytest 2>/dev/null \
+      && echo "audit_log: pytest ok" \
+      || echo "audit_log: no pytest — 'pip install pytest' to run its tests"
   fi
+else
+  echo "audit_log: no python3 — its tests are unavailable here; everything else works"
 fi
+
+# Where this branch sits relative to the integration branch, checked before any
+# work starts rather than discovered at PR time. This is the gap that let a
+# commit land on a branch whose PR had already merged: nothing looked wrong, and
+# nothing said so. Silent when the branch is fine, so a normal session start
+# stays quiet.
+state=$(bash scripts/branch-state.sh --fetch 2>/dev/null)
+case $? in
+  1) echo "branch: $state" ;;
+  2) echo "branch: STOP — $state" ;;
+esac

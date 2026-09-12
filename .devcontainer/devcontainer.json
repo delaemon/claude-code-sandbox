@@ -1,0 +1,41 @@
+{
+  "name": "puyo-puyo-web",
+
+  // Node 22 to match both the cloud session (v22.22.2) and CI. A different
+  // major here would mean the same commit can pass on one machine and fail on
+  // another, which is exactly what this file exists to prevent.
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+
+  "features": {
+    // Claude Code itself, installed the way the docs describe rather than from
+    // a hand-rolled Dockerfile.
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
+    // `gh` is how a PR gets opened from this side. Cloud sessions reach GitHub
+    // through their own proxy; here it is the CLI, and without it the two
+    // environments do not share the "work, PR, merge" flow.
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "remoteUser": "node",
+
+  "mounts": [
+    // Keep the Claude Code login and session history across rebuilds. Without
+    // both this mount and CLAUDE_CONFIG_DIR below, `.claude.json` lands outside
+    // the volume and every rebuild signs you out.
+    "source=puyo-puyo-web-claude-${devcontainerId},target=/home/node/.claude,type=volume"
+  ],
+
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude"
+  },
+
+  // The same script the SessionStart hook runs, so there is one definition of
+  // "this repository is ready to work in" rather than two that drift.
+  "postCreateCommand": "bash .claude/hooks/session-start.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["anthropic.claude-code"]
+    }
+  }
+}
