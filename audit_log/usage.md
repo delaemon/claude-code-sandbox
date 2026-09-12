@@ -13,4 +13,4 @@ A session with no usage records is absent rather than zero.
 
 | session | requests | tokens | output | context | updated |
 |---|---|---|---|---|---|
-| `fb2095ed` | 971 | 4,934,276 | 862,036 | 159,312 | 2026-09-12T12:15Z |
+| `fb2095ed` | 1,012 | 5,016,060 | 895,039 | 184,159 | 2026-09-12T12:19Z |
