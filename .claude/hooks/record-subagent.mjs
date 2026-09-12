@@ -13,12 +13,15 @@
 // that looks like content, and export.py reconciles against it.
 //
 // The first job is therefore to learn the schema from the harness rather than
-// from a document that does not fully state it. That worked on the first real
-// payload, recorded in audit_log/subagents.jsonl: `transcript_path` is indeed
-// the parent session's, and the field that solves the original problem --
-// `agent_transcript_path` -- is present and is named nowhere in the published
-// reference. Wiring export.py to it is the next step and is deliberately not
-// done here, on one observation.
+// from a document that does not fully state it. That worked: two payloads in
+// audit_log/subagents.jsonl show `transcript_path` is the parent session's, and
+// that `agent_transcript_path` -- named nowhere in the published reference -- is
+// the field that would retire the glob in export.py.
+//
+// So it is promoted to a known field and its value is now recorded. Knowing a
+// field exists is not knowing what it holds, and export.py cannot be pointed at
+// it until its value has been compared against what the glob finds. A path
+// carries no conversation text, so recording it is safe in a public log.
 import fs from "node:fs";
 import path from "node:path";
 
@@ -33,8 +36,13 @@ process.stdin.on("data", (d) => (raw += d)).on("end", () => {
   // Keep the identifying fields and the names of everything else. The values of
   // unknown fields are not copied: this file is committed to a public
   // repository and an unrecognised field could hold conversation text.
+  // Every entry here has its VALUE written to a file in a public repository, so
+  // the list may only hold fields that cannot carry conversation text. Paths,
+  // ids and modes qualify; anything message-shaped does not, which is why
+  // last_assistant_message stays out and is recorded by name alone.
   const known = ["session_id", "agent_id", "agent_type", "hook_event_name",
-                 "cwd", "permission_mode", "transcript_path"];
+                 "cwd", "permission_mode", "transcript_path",
+                 "agent_transcript_path"];
   const row = { recorded_at: new Date().toISOString() };
   for (const k of known) if (event[k] !== undefined) row[k] = String(event[k]);
   row.other_fields = Object.keys(event).filter((k) => !known.includes(k)).sort();

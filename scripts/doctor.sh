@@ -149,6 +149,25 @@ check_hook "log-usage never blocks a stop"   log-usage \
 # at its "file is missing" guard and this check passes without reaching the one
 # it is here to test. The first version of this check made exactly that mistake
 # and stayed green while the guard was removed.
+# The subagent recorder writes field values into a file in a public repository,
+# so what it treats as "known" is a disclosure decision, not a formatting one.
+# The list grew once already, to pick up agent_transcript_path. This asserts the
+# two halves that matter: a known field keeps its value, and an unknown one --
+# here the message-shaped field the harness really does send -- keeps only its
+# name.
+rec_log=$(mktemp)
+printf '%s' '{"session_id":"probe","agent_transcript_path":"/p/agent-x.jsonl","last_assistant_message":"CONVERSATION TEXT"}' \
+  | SUBAGENT_INDEX="$rec_log" bash "$repo/.claude/hooks/record-subagent.sh" >/dev/null 2>&1
+rec_body=$(cat "$rec_log" 2>/dev/null)
+rm -f "$rec_log"
+if ! printf '%s' "$rec_body" | grep -q '/p/agent-x.jsonl'; then
+  bad "record-subagent dropped a known field value — the index records nothing useful"
+elif printf '%s' "$rec_body" | grep -q 'CONVERSATION TEXT'; then
+  bad "record-subagent copied an unknown field value into a public log"
+else
+  ok "record-subagent keeps known values and only unknown field names"
+fi
+
 usage_log="$repo/audit_log/usage.md"
 probe=$(mktemp); printf '{"type":"user"}\n' > "$probe"
 before=$(cat "$usage_log" 2>/dev/null | cksum)

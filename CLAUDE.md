@@ -199,10 +199,16 @@ a check cannot hold:
 - `log-usage.sh` **exits 0 on every path**. A Stop hook that blocked could stop
   a session from ever finishing, which is worse than a missing row.
 - `record-subagent.sh` (SubagentStop) writes to `audit_log/subagents.jsonl`. It
-  records the payload's **known fields and the names of the rest**, never the
-  values: the documented schema is incomplete, this repository is public, and an
-  unrecognised field could hold conversation text. It exists to learn the shape
-  from the harness rather than from a document that does not state it.
+  records the payload's **known fields by value and the rest by name only**: the
+  documented schema is incomplete, this repository is public, and an
+  unrecognised field could hold conversation text. Its known list is therefore a
+  disclosure decision — only fields that cannot carry a message belong in it —
+  and `doctor.sh` asserts both halves.
+
+  It has already earned its place. The published reference does not name
+  `agent_transcript_path`; two recorded payloads do, and it is the field that
+  would retire the glob in `audit_log/export.py`. `export.py` is not pointed at
+  it yet: knowing a field exists is not knowing what it holds.
 
 **Hook contract.** The event arrives as JSON on stdin. **Exit 2 blocks**, on the
 events that support blocking (`PreToolUse`, `UserPromptSubmit`, `Stop`), and the
