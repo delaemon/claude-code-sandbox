@@ -10,3 +10,6 @@ __pycache__/
 .pytest_cache/
 
 .env
+
+# Staged per-turn usage, folded into audit_log/turns.jsonl by scripts/fold-turns.mjs
+audit_log/.turns-pending.jsonl

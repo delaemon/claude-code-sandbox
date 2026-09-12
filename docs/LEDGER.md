@@ -40,7 +40,7 @@ happening again.
 | 22 | The churn check compared two `cksum` reads of a file that did not exist, and two empty strings compare equal | `scripts/churn-check.mjs` | yes |
 | 23 | `mutate.mjs` decided "killed" by matching raw vitest output, which is coloured in CI and not locally, so every mutant passed here and the first reported BROKEN there — a verdict that depended on where it ran | `scripts/mutate.mjs` | yes |
 | 24 | That BROKEN message named two guesses and printed no output, so the CI failure it reported could not be diagnosed from the log | `scripts/mutate.mjs` | yes |
-| 25 | Committing the per-turn log ran CI, whose completion sent a PR notification, which woke a turn, which appended another line — a loop sustaining itself about once a minute with no input | `.github/workflows/ci.yml` | observed live |
+| 25 | Committing the per-turn log ran CI, whose completion sent a PR notification, which woke a turn, which appended another line — a loop sustaining itself about once a minute with no input | `scripts/fold-turns.mjs` | observed live |
 
 ## Closed since, and how
 
@@ -87,19 +87,37 @@ on its first run, and each was reproduced here before being fixed.
 
 **25 is the loop that was actually there.** Row 11 suspected the Stop hook of
 talking itself into turns and was diagnosed as innocent, correctly. Meanwhile
-the same shape ran through a different path: the hook appends to
-`turns.jsonl`, the environment's git check asks for a commit, the commit runs
-CI, CI completing sends a PR notification, and the notification wakes a turn
-that appends another line. Six of the ten commits on the pull request that found
-it were that cycle, roughly a minute apart.
+the same shape ran through a different path: the hook appends to the turn log,
+the environment's git check asks for a commit, the commit runs CI, CI completing
+sends a pull request notification, and the notification wakes a turn that
+appends another line. Six of the ten commits on the pull request that found it
+were that cycle, roughly a minute apart.
 
-`audit_log/**` is excluded from the CI triggers now, which cuts the link
-between a log line and a notification.
+**The first fix did not work, and the commit message claiming it did was wrong
+for about a minute.** `paths-ignore: ['audit_log/**']` was added to the CI
+triggers; a commit touching only `audit_log/` ran CI anyway, 31 runs to 32. For
+`pull_request`, the filter is evaluated against the pull request's whole diff,
+not the push that updated it, so a PR containing any code is never excluded. The
+filter is reverted: it cut coverage and bought nothing.
 
-The decision to exclude it had been raised once already and dropped, on the
-grounds that Actions minutes are free for a public repository. The cost estimate
-was right and irrelevant: the harm was never the minutes. Estimating the wrong
-quantity accurately is its own way of being wrong.
+**Committing was never the problem.** Not committing loops too — the git check
+asks, the ask wakes a turn, the turn writes another line. Any tracked file that
+changes every turn has no quiet state.
+
+So the source is cut instead. The hook writes to `audit_log/.turns-pending.jsonl`,
+which git ignores, and `scripts/fold-turns.mjs` moves those lines into the
+tracked log. `gates.sh` calls it, and gates run before every real commit here, so
+the lines land with the work rather than alone. A turn that does nothing else
+now leaves the tree clean and starts nothing.
+
+Verified in eight cases, including that a fold which cannot write exits 1 and
+leaves the lines staged rather than reporting a fold that did not happen.
+
+**An estimate that was accurate and irrelevant.** Excluding `audit_log` from CI
+had been raised once before and dropped, because Actions minutes are free for a
+public repository. The minutes were never the harm; the notification was.
+Estimating the wrong quantity correctly is its own way of being wrong — and the
+exclusion turned out not to work either.
 
 **23 and 24 came from CI**, after the rest of this had been verified locally.
 `mutate.mjs` matched vitest's raw summary for `Tests N failed`; vitest colours

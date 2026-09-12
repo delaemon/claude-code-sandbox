@@ -28,7 +28,16 @@ import fs from "node:fs";
 import path from "node:path";
 
 const LOG = process.env.USAGE_LOG || "audit_log/usage.md";
-const TURNS = process.env.TURNS_LOG || "audit_log/turns.jsonl";
+// Staged outside git, not written straight into the tracked log.
+//
+// A tracked file that changes every turn has no quiet state: committing it runs
+// CI, whose completion notifies, which wakes a turn, which writes another line;
+// not committing it makes the environment ask for a commit, which also wakes a
+// turn. Both are loops, and six of ten commits on one pull request were the
+// first one. scripts/fold-turns.mjs moves these lines into the tracked log when
+// there is other work to commit them with -- gates.sh calls it, and gates run
+// before every real commit here.
+const TURNS = process.env.TURNS_LOG || "audit_log/.turns-pending.jsonl";
 const CACHE = process.env.SUBAGENT_CACHE
   || path.join(process.env.TMPDIR || "/tmp", "claude-subagent-tokens.json");
 

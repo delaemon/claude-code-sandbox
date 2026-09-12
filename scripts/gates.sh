@@ -36,6 +36,10 @@ run() {
   fi
 }
 
+# Fold the per-turn log in first, so its lines land in the commit these gates
+# are being run for. See scripts/fold-turns.mjs for why they are staged.
+node "$(dirname "$0")/fold-turns.mjs" >/dev/null 2>&1 || true
+
 echo "gates"
 run "typecheck"           bash -c 'cd puyopuyo && npm run typecheck'
 run "tests"               bash -c 'cd puyopuyo && npm test'
