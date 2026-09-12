@@ -1,17 +1,32 @@
 #!/usr/bin/env bash
-# SessionStart hook: make the repo runnable in a fresh (e.g. Claude Code on the web) container.
-# Only the root pipeline's deps are installed here — they are small. f1map pulls in
-# pandas/numpy/fastf1 and takes minutes, so it stays on-demand.
+# SessionStart hook: make the repo usable in a fresh (e.g. Claude Code on the
+# web) container, so the first thing a session does is not an install.
+#
+# The version this replaces installed a root requirements.txt for a Python
+# pipeline that no longer exists on this branch, and deliberately skipped the
+# heavy deps of a second project that is also gone. puyopuyo/ is now the only
+# application here and its three dev dependencies are cheap, so nothing is
+# deferred: the install runs only when node_modules is absent.
 set -uo pipefail
 cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}"
 
-if python3 -c 'import anthropic, pytest' 2>/dev/null; then
-  echo "deps: already present"
-else
-  echo "deps: installing root requirements.txt ..."
-  python3 -m pip install --quiet --disable-pip-version-check -r requirements.txt \
-    && echo "deps: ok" \
-    || echo "deps: FAILED — run 'pip install -r requirements.txt' by hand"
+if [ -d puyopuyo/node_modules ]; then
+  echo "puyopuyo: deps already present"
+elif [ -f puyopuyo/package-lock.json ]; then
+  echo "puyopuyo: installing deps ..."
+  if (cd puyopuyo && npm ci --no-audit --no-fund >/dev/null 2>&1); then
+    echo "puyopuyo: ok"
+  else
+    echo "puyopuyo: FAILED — run 'cd puyopuyo && npm ci' by hand"
+  fi
 fi
 
-echo "f1map deps are NOT installed automatically: cd f1map && pip install -r requirements.txt"
+# audit_log/test_export.py is the only Python left here, so pytest is installed
+# as a single package rather than from a requirements file.
+if ! python3 -c 'import pytest' 2>/dev/null; then
+  if python3 -m pip install --quiet --disable-pip-version-check pytest 2>/dev/null; then
+    echo "audit_log: pytest ok"
+  else
+    echo "audit_log: pytest install FAILED — 'pip install pytest' to run its tests"
+  fi
+fi

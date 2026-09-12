@@ -1,16 +1,12 @@
-__pycache__/
-*.pyc
-*.pyo
-.pytest_cache/
-workspace/
-*.egg-info/
-dist/
-build/
-.env
-f1map/cache/
-f1map/data_cache/
-
 # Node (puyopuyo/)
 node_modules/
+dist/
 *.tsbuildinfo
 .vite/
+
+# Python (audit_log/)
+__pycache__/
+*.pyc
+.pytest_cache/
+
+.env
