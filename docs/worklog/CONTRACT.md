@@ -60,3 +60,34 @@ Append to your own file. Each entry:
 
 Log decisions and their evidence — not a narration of every edit. An entry
 nobody could act on later is noise.
+
+## Resolved by round 1
+
+The core agent hit three places where the rules above were ambiguous or silent.
+Settled here so the next round inherits the answer instead of re-deriving it.
+
+- **Settle before the first pop check.** "Gravity applies after every pop" did
+  not say what happens to a board that arrives unsettled. `resolve` settles
+  first, which makes it total over any board a test can write as a literal. The
+  consequence to remember: `result.board` can differ from the input while
+  `chainCount` is 0.
+- **Simultaneous pops are one chain link.** This followed from "iterations = the
+  chain count" but was never stated. Two separate groups popping in the same
+  iteration count as one chain, not two.
+- **The hidden row is not settled, and the game loop must settle it.** Row 0 is
+  fixed as the spawn row, but nothing said whether it pops. Core treats it as an
+  ordinary row; real Puyo Puyo excludes it from popping. Whoever builds the game
+  loop decides this explicitly and records it here — do not let it be decided by
+  accident.
+
+## Next round
+
+Core logic is done and tested; the game loop is not started. The order the core
+agent recommends, and the reason it is that order: piece/pair model with an
+injected `rng` → a pure `step(state, input)` reducer that takes ticks as inputs
+→ game-over and hidden-row rules → scoring as a pure function over
+`ResolveResult` → rendering last. Keeping ticks as inputs is what lets the loop
+be tested without a clock, the same way `resolve` is tested without a board.
+
+Also open: `npm audit` reports 2 moderate transitive advisories. Left alone —
+`audit fix --force` would take a breaking major bump for a dev-only toolchain.
