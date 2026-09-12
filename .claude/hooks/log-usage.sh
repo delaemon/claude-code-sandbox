@@ -16,6 +16,15 @@
 # measured must not appear as a session that cost nothing. Visibility for that
 # case comes from scripts/doctor.sh, which runs this hook and checks it.
 #
+# The figures are ROUNDED, and that is the point rather than sloppiness. The
+# first version wrote exact counts and a minute-precision timestamp, so the file
+# changed on every single stop — a tracked file permanently dirty, and a
+# "commit your changes" warning on every turn. Writing it precisely bought no
+# durability either: an uncommitted row dies with the VM exactly like no row at
+# all. Rounded, the file changes a handful of times per session, each change
+# meaning the session crossed a real threshold. `scripts/usage.sh --line` is
+# where exact live numbers come from.
+#
 # node, not python3: the cloud image has python3 and a dev container need not.
 set -uo pipefail
 
@@ -54,8 +63,11 @@ let raw = ""; process.stdin.on("data", (d) => (raw += d)).on("end", () => {
   // context, so including them reports the context size times the turn count.
   const tokens = out + cw + fresh;
   const n = (x) => x.toLocaleString("en-US");
-  const now = new Date().toISOString().replace(/:\d\d\.\d+Z$/, "Z");
-  const row = `| \x60${session}\x60 | ${n(calls)} | ${n(tokens)} | ${n(out)} | ${n(ctx)} | ${now} |`;
+  // Rounded so the file does not change on every stop. See the note above.
+  const round = (x, to) => Math.round(x / to) * to;
+  const day = new Date().toISOString().slice(0, 10);
+  const row = `| \x60${session}\x60 | ~${n(round(calls, 100))} | `
+            + `~${n(round(tokens, 100000))} | ~${n(round(out, 10000))} | ${day} |`;
 
   const file = "audit_log/usage.md";
   const header = [
@@ -72,8 +84,13 @@ let raw = ""; process.stdin.on("data", (d) => (raw += d)).on("end", () => {
     "",
     "A session with no usage records is absent rather than zero.",
     "",
-    "| session | requests | tokens | output | context | updated |",
-    "|---|---|---|---|---|---|",
+    "Figures are rounded, so this file changes a few times a session rather than",
+    "on every turn. Writing it exactly made it permanently dirty in git and bought",
+    "nothing: an uncommitted row dies with the VM just as a missing one does. Run",
+    "`bash scripts/usage.sh --line` for exact live numbers.",
+    "",
+    "| session | requests | tokens | output | updated |",
+    "|---|---|---|---|---|",
   ];
 
   let body = [];

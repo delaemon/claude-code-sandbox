@@ -11,6 +11,11 @@ the context size multiplied by the number of turns rather than the work.
 
 A session with no usage records is absent rather than zero.
 
-| session | requests | tokens | output | context | updated |
-|---|---|---|---|---|---|
-| `fb2095ed` | 1,012 | 5,016,060 | 895,039 | 184,159 | 2026-09-12T12:19Z |
+Figures are rounded, so this file changes a few times a session rather than
+on every turn. Writing it exactly made it permanently dirty in git and bought
+nothing: an uncommitted row dies with the VM just as a missing one does. Run
+`bash scripts/usage.sh --line` for exact live numbers.
+
+| session | requests | tokens | output | updated |
+|---|---|---|---|---|
+| `fb2095ed` | ~1,000 | ~5,000,000 | ~910,000 | 2026-09-12 |

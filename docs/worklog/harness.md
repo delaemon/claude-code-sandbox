@@ -164,3 +164,35 @@ output 14,533, cache writes 164,839, fresh input 96, cache reads 3,106,928 —
 no combination of which is 95,865. The harness uses an accounting that cannot
 be reconstructed from the transcript, so the two numbers are not comparable and
 the index does not claim to match it.
+
+## 2026-09-12T12:25Z — the usage log churned every turn; rounding fixed it
+
+**Tokens**: ~25,000 for this correction. Session total ~5,000,000.
+
+**What broke**: the Stop hook added an hour earlier wrote exact counts and a
+minute-precision timestamp, so `audit_log/usage.md` changed on every stop. The
+environment's own git-check hook then warned about uncommitted changes every
+single turn — twice in three turns before it was obvious this would never stop.
+
+**The actual error was in reasoning, not code.** Writing the row every turn was
+justified as protecting against a VM reclaim, which it does not: an uncommitted
+row dies with the VM exactly like no row at all. Only the committed value was
+ever durable, so the per-turn precision bought nothing and cost a permanently
+dirty tree.
+
+**Fix**: round. Requests to 100, tokens to 100,000, output to 10,000, timestamp
+to the day. A normal turn (+8,000 tokens) now leaves the file untouched;
+crossing a threshold (+150,000) updates it. Exact live numbers come from
+`scripts/usage.sh --line`, which writes its stamp outside the repository.
+
+**Also corrected**: a claim made earlier in the session that the new hook would
+only take effect in the next session. That limit applies to *plugins*. Hooks are
+read from `settings.json` and this one fired immediately — which is how the
+churn was discovered.
+
+**Third occurrence of the same testing mistake**: the verification grepped for
+`churntest` while the hook truncates session ids to 8 characters, so it matched
+nothing and the first "no churn" result was measuring an empty file. Re-run
+against `churntes`. Two earlier instances of this exact slip are recorded in the
+entry above; the pattern is asserting on a value after something has transformed
+it.

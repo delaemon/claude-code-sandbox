@@ -124,7 +124,7 @@ reason stated above, that this file is advisory and a hook is executed.
 
 | where | what | written by |
 | --- | --- | --- |
-| `audit_log/usage.md` | one row per session, updated in place | `hooks/log-usage.sh`, on Stop |
+| `audit_log/usage.md` | one row per session, updated in place, **rounded** | `hooks/log-usage.sh`, on Stop |
 | `audit_log/INDEX.md` | a `tokens` column, one row per subagent run | `audit_log/export.py` |
 | `docs/worklog/*.md` | the cost of the run the entry describes | whoever writes the entry |
 
@@ -147,8 +147,15 @@ Two things this must never do:
   remaining is unmeasurable. A number invented here would be believed exactly
   until the session stopped working.
 
+**The logged figures are rounded on purpose.** Written exactly, `usage.md`
+changed on every stop: a tracked file permanently dirty, and a "commit your
+changes" warning every turn. It bought no durability either — an uncommitted
+row dies with the VM exactly as a missing one does, so only the committed value
+ever mattered. Rounded, the file changes a few times a session and each change
+means a real threshold was crossed.
+
 `bash scripts/usage.sh --line` prints one line with the delta since the
-previous call, for reporting cost while working.
+previous call, for exact numbers while working.
 
 ## Branch and PR workflow
 
