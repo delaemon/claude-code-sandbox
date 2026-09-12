@@ -49,8 +49,9 @@ REDACTED = [
 ]
 
 KEPT = [
-    # Documentation. CLAUDE.md tells people to run this exact line; masking it
-    # protects nobody and makes the transcript harder to read.
+    # Documentation. This exact line appears a dozen times in the archived
+    # transcripts, read out of a CLAUDE.md that told people to run it; masking
+    # it protects nobody and makes the transcript harder to follow.
     pytest.param("ANTHROPIC_API_KEY=your_key_here", id="doc-placeholder"),
     pytest.param("API_KEY=<your-key>", id="angle-placeholder"),
     pytest.param("GITHUB_TOKEN=$GITHUB_TOKEN", id="shell-variable"),

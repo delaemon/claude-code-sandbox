@@ -49,9 +49,10 @@ PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 ]
 
 # `NAME=value` for names that imply a secret. The placeholder guard keeps
-# documentation readable: CLAUDE.md tells people to run
-# `export ANTHROPIC_API_KEY=your_key_here`, and redacting that teaches nobody
-# anything while making the transcript harder to read.
+# documentation readable: the archived transcripts contain
+# `export ANTHROPIC_API_KEY=your_key_here` a dozen times, read out of a
+# CLAUDE.md that told people to run it. Masking a line like that protects
+# nobody and makes the transcript harder to follow.
 SECRET_NAME = (
     r"(?:[A-Z0-9_]*"
     r"(?:SECRET|TOKEN|PASSWORD|PASSWD|APIKEY|API_KEY|ACCESS_KEY|PRIVATE_KEY)"

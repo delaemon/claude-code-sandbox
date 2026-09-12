@@ -2,11 +2,9 @@
 # SessionStart hook: make the repo usable in a fresh (e.g. Claude Code on the
 # web) container, so the first thing a session does is not an install.
 #
-# The version this replaces installed a root requirements.txt for a Python
-# pipeline that no longer exists on this branch, and deliberately skipped the
-# heavy deps of a second project that is also gone. puyopuyo/ is now the only
-# application here and its three dev dependencies are cheap, so nothing is
-# deferred: the install runs only when node_modules is absent.
+# Nothing here is deferred. puyopuyo's three dev dependencies install in about
+# two seconds, which is cheap enough to pay on every fresh container rather than
+# leaving a session to discover it needs them.
 set -uo pipefail
 cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}"
 

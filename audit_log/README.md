@@ -41,7 +41,7 @@ have opposite requirements and cannot be the same artifact:
 | Content | why | what |
 | Completeness | deliberately partial | useless if partial |
 | Pruning | **required** — stale entries send the next agent down a path that is already closed | **forbidden** — a log you can edit proves nothing |
-| Size | 56 KB | 2.6 MB |
+| Size | 84 KB | 2.6 MB |
 
 A worklog entry that has served its purpose gets deleted. Deleting from an
 audit log destroys the only thing it was for.
@@ -63,8 +63,9 @@ in both runs" stays answerable without the token being readable.
 
 Two things the redactor deliberately does **not** touch:
 
-- **Placeholders.** `ANTHROPIC_API_KEY=your_key_here` is a line from
-  `CLAUDE.md` telling a human what to run. Masking it protects nobody.
+- **Placeholders.** `ANTHROPIC_API_KEY=your_key_here` appears a dozen times in
+  the archive, read out of a `CLAUDE.md` that told a human what to run. Masking
+  it protects nobody.
 - **Hashes and SHAs.** A rule based on "looks random" eats git SHAs and content
   digests, which are exactly what an audit trail exists to preserve. The
   patterns are anchored on vendor prefixes and key names instead.
