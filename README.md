@@ -1,73 +1,49 @@
-# Multi-Agent Coding Pipeline
+# Puyo Puyo (web)
 
-Claude-powered pipeline that automates the full software development lifecycle:
-
-```
-Task Description
-  → Requirements Agent     → requirements.md
-  → Implementation Agent   → src/*.py
-  → Test Generator Agent   → tests/*.py
-  → Test Runner Agent      → test_report.json + test_results_summary.md
-  → Reporter Agent         → final_report.md
-```
-
-## Quick Start
+A browser Puyo Puyo built in TypeScript, where the rules are pure functions and
+everything that makes them hard to test — the clock, randomness, the canvas —
+is pushed to the edge.
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Set your API key
-export ANTHROPIC_API_KEY=your_key_here
-
-# Run with a task description
-python main.py "Create a Python module that implements a stack data structure with push, pop, peek, and is_empty operations. Include overflow protection with a configurable max size."
-
-# Or interactive mode
-python main.py
+cd puyopuyo
+npm ci
+npm run dev        # play it
+npm test           # 190 tests
+npm run typecheck
+npm run build
 ```
 
-## Architecture
+## Layout
 
-| Component | File | Role |
-|-----------|------|------|
-| CLI entry | `main.py` | Parses args, calls Orchestrator |
-| Orchestrator | `orchestrator.py` | Sequences all agents, manages workspace |
-| Base Agent | `agents/base_agent.py` | Agentic loop (tool-use → Claude → repeat) |
-| Requirements Agent | `agents/requirements_agent.py` | Spec & acceptance criteria |
-| Implementation Agent | `agents/implementation_agent.py` | Production Python code |
-| Test Generator | `agents/test_generator.py` | pytest test suite |
-| Test Runner | `agents/test_runner.py` | Executes tests, captures JSON report |
-| Reporter | `agents/reporter.py` | Final markdown report |
-| Workspace | `utils/workspace.py` | Timestamped run directory |
-| Tools | `utils/tools.py` | write_file, read_file, list_files, run_command, finish |
+| Directory | What it holds |
+| --- | --- |
+| `puyopuyo/src/core/` | Board, gravity, group detection, chain resolution. No DOM, no timers, no randomness. |
+| `puyopuyo/src/game/` | Piece, queue and the `step(state, input)` reducer. Time arrives as `tick(ms)`; the queue's `rng` is injected. |
+| `puyopuyo/src/score/` | Chain scoring over a `ResolveResult`, returned with its components rather than as a bare number. |
+| `puyopuyo/src/input/` | Keyboard handling with DAS/ARR that advances through `advance(ms)`, not a timer. |
+| `puyopuyo/src/render/` | Geometry and canvas drawing. Takes state and a context; reads no clock. |
+| `puyopuyo/src/main.ts` | **The only file that knows what time it is.** |
+| `docs/worklog/` | The contract the agents work to, and the decisions each one made. |
+| `audit_log/` | Redacted transcripts of every agent run. |
 
-## Workspace Layout
+## Why it is shaped this way
 
-Each run creates a timestamped directory under `workspace/`:
+Chains are where the bugs live, so `core` takes and returns plain data and
+boards are written in tests as strings:
 
 ```
-workspace/
-  20240629_153012/
-    _meta.json                  ← pipeline metadata
-    requirements.md             ← Phase 1 output
-    src/
-      *.py                      ← Phase 2 output
-    tests/
-      conftest.py               ← Phase 3 output
-      test_*.py
-    test_report.json            ← Phase 4 output (pytest JSON)
-    test_results_summary.md
-    final_report.md             ← Phase 5 output
+'.....'
+'..R..'
+'.RRG.'
+'RGGG.'   // → 2 chains
 ```
 
-## Agent Design
+The same move pays off twice more: the reducer is tested by feeding it explicit
+ticks instead of waiting on a clock, and auto-repeat is tested by calling
+`advance(ms)` instead of holding a key. Nothing in the suite sleeps, so nothing
+in it flakes.
 
-Each agent extends `BaseAgent` which drives an **agentic tool-use loop**:
-
-1. Send system prompt + user message to Claude
-2. Claude responds with tool calls
-3. Execute tools → append results
-4. Repeat until `finish` tool is called or `end_turn`
-
-Agents share a `Workspace` instance and communicate through files rather than in-memory objects, making each phase independently inspectable and re-runnable.
+This repository doubles as a sandbox for multi-agent development. `CLAUDE.md`
+carries the branch and PR conventions and the harness setup;
+`docs/worklog/CONTRACT.md` carries what parallel agents must agree on before
+they start, since they run cold and cannot read each other's work in flight.

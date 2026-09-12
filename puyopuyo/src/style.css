@@ -1,0 +1,136 @@
+/*
+ * The page around the canvas. Everything inside the canvas is drawn by
+ * src/render/; this file only has to give it a well-sized box to live in and
+ * not look like an unstyled document while doing it.
+ *
+ * The colours are the renderer's THEME (src/render/palette.ts) so the page and
+ * the playfield are one surface rather than two.
+ */
+
+:root {
+  --bg: #101119;
+  --panel: #171926;
+  --edge: #242739;
+  --text: #eceefb;
+  --dim: #9096b0;
+  --accent: #7dd3fc;
+  --gap: clamp(8px, 2vw, 16px);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: radial-gradient(120% 90% at 50% 0%, #1a1d2c 0%, var(--bg) 60%);
+  color: var(--text);
+  font: 500 14px/1.4 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding: var(--gap) max(var(--gap), env(safe-area-inset-left)) max(var(--gap), env(safe-area-inset-bottom));
+  gap: var(--gap);
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--gap);
+  margin: 0 auto;
+  width: 100%;
+  max-width: 640px;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(15px, 4vw, 19px);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+h1 span {
+  color: var(--accent);
+  margin-left: 0.35em;
+}
+
+.seed {
+  margin: 0;
+  color: var(--dim);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.seed code {
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/*
+ * The stage is what main.ts measures: it must have a definite size, so it
+ * takes the leftover height (`min-height: 0` is what lets a flex child shrink)
+ * and the canvas is centred inside it at whatever size fits.
+ */
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+canvas {
+  display: block;
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 45%);
+  touch-action: manipulation;
+}
+
+.keys {
+  justify-content: center;
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.keys span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 2px 5px;
+  border: 1px solid var(--edge);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  text-align: center;
+}
+
+/* Phones: the key legend is the first thing to give up its space. */
+@media (max-width: 420px) {
+  .keys {
+    gap: 6px 10px;
+    font-size: 11px;
+  }
+}

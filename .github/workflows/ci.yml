@@ -2,8 +2,8 @@ name: CI
 
 # push is pinned to puyo-puyo-web: the repository default branch is a leftover
 # session branch, so a default-branch trigger would never fire for this project.
-# pull_request is left unfiltered on purpose — it would otherwise miss the final
-# puyo-puyo-web -> default-branch PR, whose base is not puyo-puyo-web.
+# pull_request is left unfiltered because it is simpler and checks every PR in
+# the repository. Nothing is ever merged into the default branch here.
 on:
   pull_request:
   push:
