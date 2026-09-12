@@ -52,8 +52,13 @@ if ! git merge-base "$base_ref" HEAD >/dev/null 2>&1; then
 fi
 
 range="$base_ref...HEAD"
+# Kept deliberately narrower than CODEOWNERS' `/.github/`: an issue template
+# changes nothing about what the agent may do. CODEOWNERS itself is here
+# because it is the list of which files this whole check is about, and this
+# check omitting it is exactly the blind spot it exists to prevent — it did,
+# on the pull request that introduced it.
 watched=('.claude/**' 'CLAUDE.md' '.github/workflows/**' 'scripts/**'
-         '.devcontainer/**' 'docs/worklog/CONTRACT.md')
+         '.devcontainer/**' 'docs/worklog/CONTRACT.md' '.github/CODEOWNERS')
 if ! changed=$(git diff --name-only "$range" -- "${watched[@]}"); then
   echo "\`git diff $range\` failed; refusing to report this as no change." >&2
   exit 1
@@ -72,6 +77,7 @@ explain() {
     CLAUDE.md)                echo "what the next session believes about this repo" ;;
     docs/worklog/CONTRACT.md) echo "what parallel agents are bound to" ;;
     .github/workflows/*)      echo "what CI checks" ;;
+    .github/CODEOWNERS)       echo "who owns the files that decide agent behaviour" ;;
     .devcontainer/*)          echo "the environment the agent runs in locally" ;;
     scripts/*)                echo "checks the harness and CI depend on" ;;
     *)                        echo "agent behaviour" ;;
