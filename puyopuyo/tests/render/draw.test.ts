@@ -161,7 +161,7 @@ describe('draw — HUD and game over', () => {
   it('writes the score and the stat labels', () => {
     const texts = render(started()).texts();
     expect(texts).toContain('NEXT');
-    expect(texts).toContain('LAST CHAIN');
+    expect(texts).toContain('SCORE');
     expect(texts).toContain('PIECES');
     expect(texts).toContain('CLEARED');
     expect(texts).toContain('BEST');
@@ -178,7 +178,7 @@ describe('draw — HUD and game over', () => {
     expect(before).toContain('0');
     // 5 cells * 10 * clamp(chainPower 0 + colourBonus 0 + groupBonus(5) 2) = 100
     expect(after).toContain('100');
-    expect(after).toContain('1 chain');
+    expect(after).toContain('1 chain  +100');
   });
 
   it('draws GAME OVER, the blocked piece dimmed, and nothing dimmed after it', () => {

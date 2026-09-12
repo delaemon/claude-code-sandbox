@@ -11,6 +11,11 @@
  */
 
 import { applyGravity, resolve, type Board } from '../core/index.js';
+// The one dependency this layer has beyond core. Scoring stays a pure function
+// of a ResolveResult; all this does is bank its answer when a chain finishes,
+// because a total has to accumulate in the state and nothing above here holds
+// state to accumulate it in.
+import { totalScore } from '../score/index.js';
 import {
   fits,
   isGrounded,
@@ -254,6 +259,10 @@ function tickResolving(state: ResolvingState, ms: number): GameState {
     chains: state.stats.chains + (result.chainCount > 0 ? 1 : 0),
     longestChain: Math.max(state.stats.longestChain, result.chainCount),
     totalCleared: state.stats.totalCleared + result.totalCleared,
+    // Banked only now, when the last step has been shown. Adding it when the
+    // chain started would put the score ahead of the pops the player is
+    // watching, which is the thing the staged animation exists to avoid.
+    score: state.stats.score + totalScore(result),
   };
   const spawning: SpawningState = {
     ...baseOf(state),

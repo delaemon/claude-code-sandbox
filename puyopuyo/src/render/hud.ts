@@ -13,11 +13,17 @@ import { scoreChain } from '../score/index.js';
 
 export interface HudModel {
   /**
-   * Score of the chain being shown. During `resolving` only the steps that have
-   * actually popped on screen are counted, so the number climbs with the chain
-   * instead of jumping to the total before the player sees why.
+   * The running total, including however much of a chain currently on screen
+   * has actually popped.
+   *
+   * `stats.score` banks a chain only once its last step has been shown, so
+   * during `resolving` this adds the shown steps on top. The number therefore
+   * climbs with the pops instead of jumping to the total before the player sees
+   * why, and never counts the same chain twice.
    */
   readonly score: number;
+  /** Score of the chain being shown, on its own. */
+  readonly chainScore: number;
   /** Chain steps shown so far (`chainCount` once the chain has finished). */
   readonly chain: number;
   readonly pieces: number;
@@ -26,30 +32,25 @@ export interface HudModel {
   readonly gameOver: boolean;
 }
 
-/**
- * The HUD numbers for a state.
- *
- * Note what is *not* here: a running total across the whole game. `GameState`
- * carries only `lastResolve`, so a cumulative score cannot be derived from it —
- * see docs/worklog/render.md. This reports the last chain, which is what the
- * state can actually answer.
- */
+/** The HUD numbers for a state. */
 export function hudModel(state: GameState): HudModel {
   const result = state.lastResolve;
-  const shownSteps =
-    state.phase === 'resolving' ? state.stepIndex : (result?.steps.length ?? 0);
+  const resolving = state.phase === 'resolving';
+  const shownSteps = resolving ? state.stepIndex : (result?.steps.length ?? 0);
 
-  let score = 0;
+  let chainScore = 0;
   let chain = 0;
   if (result !== null) {
-    const scored = scoreChain(result);
-    const shown = scored.steps.slice(0, shownSteps);
-    score = shown.reduce((sum, step) => sum + step.score, 0);
+    const shown = scoreChain(result).steps.slice(0, shownSteps);
+    chainScore = shown.reduce((sum, step) => sum + step.score, 0);
     chain = shown.length;
   }
 
   return {
-    score,
+    // Only while resolving is the chain still unbanked; afterwards
+    // `stats.score` already contains it and adding it again would double count.
+    score: state.stats.score + (resolving ? chainScore : 0),
+    chainScore,
     chain,
     pieces: state.stats.piecesPlaced,
     cleared: state.stats.totalCleared,

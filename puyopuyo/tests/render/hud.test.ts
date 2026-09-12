@@ -62,6 +62,7 @@ describe('hudModel', () => {
   it('reports zeroes for a fresh game', () => {
     expect(hudModel(started())).toEqual({
       score: 0,
+      chainScore: 0,
       chain: 0,
       pieces: 0,
       cleared: 0,
@@ -96,6 +97,38 @@ describe('hudModel', () => {
     expect(model.pieces).toBe(1);
     expect(model.cleared).toBe(5);
     expect(model.best).toBe(1);
+  });
+
+  it('does not count a chain twice once it is banked', () => {
+    // The regression this guards: `stats.score` gains the chain when its last
+    // step has been shown, and `lastResolve` still points at that same chain,
+    // so a HUD that always added both would double every score.
+    const settled = stepAll(resolvingState(), [tick(CONFIG.chainStepMs), tick(CONFIG.chainStepMs)]);
+    expect(settled.phase).not.toBe('resolving');
+    const chain = scoreChain(settled.lastResolve!).total;
+    expect(settled.stats.score).toBe(chain);
+    expect(hudModel(settled).score).toBe(chain);
+  });
+
+  it('adds the chain being shown on top of what is already banked', () => {
+    // Mid-chain: one step of a two-step chain shown, and 5000 already banked
+    // from earlier chains. The total has to be the sum, not either half.
+    const base = resolvingState();
+    const midChain: GameState = {
+      ...base,
+      result: twoChain,
+      lastResolve: twoChain,
+      stepIndex: 1,
+      stats: { ...base.stats, score: 5000 },
+    };
+    const model = hudModel(midChain);
+    const firstStep = scoreChain(twoChain).steps[0]!.score;
+
+    expect(firstStep).toBeGreaterThan(0);
+    expect(model.chainScore).toBe(firstStep);
+    expect(model.score).toBe(5000 + firstStep);
+    // and not the whole chain, which has not finished
+    expect(model.score).toBeLessThan(5000 + scoreChain(twoChain).total);
   });
 
   it('flags game over', () => {
