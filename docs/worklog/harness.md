@@ -221,3 +221,30 @@ idea and was verified against a +8,000 turn, which passed. The verification used
 one sample near the average and none near the top of the range, so it confirmed
 the mechanism while saying nothing about the setting. A threshold needs
 measuring against the distribution it will actually see.
+
+## 2026-09-12T22:20Z — the undocumented field the recorder was built to find
+
+**Tokens**: ~120,000 for the three-gap work. Session total ~7,000,000.
+
+`SubagentStop` was added to replace a glob over an internal path in
+`export.py`. Two things were checked first, and both changed the plan.
+
+**The stated reason was wrong.** The glob was described as failing silently if
+the layout moved. It does not: `export.py` prints to stderr and exits 1 on an
+empty result, confirmed by pointing it at an empty config directory. The claim
+had been made from the shape of the code without running it.
+
+**The documentation could not carry the design.** The published reference does
+not give a complete schema for this event, and describes `transcript_path` in a
+way suggesting it belongs to the parent rather than the subagent. So the hook
+was written to record rather than assume: known fields by value, unknown fields
+by name only, because `audit_log` is public and an unrecognised field could hold
+conversation text.
+
+**The first real payload settled it.** `transcript_path` is the parent's, as
+suspected — and `agent_transcript_path` is present, which is the field that
+actually solves the original problem and appears nowhere in the reference.
+
+The glob is still there. One observation is enough to know the field exists and
+not enough to depend on it; the next run that produces a second row is what
+would justify rewriting `find_transcripts`.

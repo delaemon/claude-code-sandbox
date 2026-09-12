@@ -13,7 +13,12 @@
 // that looks like content, and export.py reconciles against it.
 //
 // The first job is therefore to learn the schema from the harness rather than
-// from a document that does not fully state it.
+// from a document that does not fully state it. That worked on the first real
+// payload, recorded in audit_log/subagents.jsonl: `transcript_path` is indeed
+// the parent session's, and the field that solves the original problem --
+// `agent_transcript_path` -- is present and is named nowhere in the published
+// reference. Wiring export.py to it is the next step and is deliberately not
+// done here, on one observation.
 import fs from "node:fs";
 import path from "node:path";
 
