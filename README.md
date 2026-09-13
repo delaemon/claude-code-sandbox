@@ -1,8 +1,8 @@
 # Agentic AI harness
 
 A reusable harness for developing software with Claude Code, built one failure
-at a time — forty-two of them, each with the executable check that now catches
-it.
+at a time — every one of them in `docs/LEDGER.md`, paired with the executable
+check that now catches it.
 
 The application is yours. Everything else — the gates, the hooks, the audit
 trail, the eval suite that replays past failures, and the loop that runs all of
@@ -25,9 +25,9 @@ exit code made `gates.sh` print `ok` while the suite was dying.
 
 **A guard that cannot run must not look like a guard that passed.**
 
-Forty-two ledger rows are versions of it. The most recent: an application's
-test command exited 3, `gates.sh` read that in its own vocabulary as
-*not configured*, printed a grey note, and exited 0. The suite had died and
+Every row in `docs/LEDGER.md` is a version of it. One of the most recent: an
+application's test command exited 3, `gates.sh` read that in its own vocabulary
+as *not configured*, printed a grey note, and exited 0. The suite had died and
 the gates passed.
 
 Everything here is that sentence applied repeatedly. Exit codes carry it:
