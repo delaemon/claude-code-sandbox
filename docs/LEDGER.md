@@ -65,6 +65,7 @@ happening again.
 | 40 | Adding a hook put an untracked file in `git status` on every turn — `.gitignore` named the three paths the hooks wrote, and the fourth was not among them. Row 25's shape, back within an hour of the row being read | `which git ignores` | yes |
 | 41 | A `doctor.sh` probe ran a hook without redirecting stdin; the hook waited for its event and blocked for ever. No output, no error, and a check that hangs never reports at all | `no hook answered --where` | yes |
 | 42 | Ledger rows were written by hand, so a row could be added whose check had never been seen to catch anything — `ledger.sh` only asks whether the named check exists | `scripts/learn-check.sh` | yes |
+| 43 | A stray NUL byte made a check's source read as binary to git, so `git diff` showed only a byte count and the agent-behaviour review could not report what had changed in it | `text git can diff` | yes |
 
 ## Closed since, and how
 

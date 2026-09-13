@@ -349,6 +349,38 @@ else
   bad "a doctor probe wrote into audit_log/turns.jsonl"
 fi
 
+# Every source file the harness is made of must be text git can diff.
+#
+# A stray NUL byte makes git call a file binary: `git diff` shows `Bin 0 -> 4802
+# bytes` and nothing else, and scripts/agent-config-diff.sh -- whose whole job
+# is reporting what a change does to the agent's own behaviour -- can report
+# only that the file changed size. A guard whose source cannot be reviewed is a
+# guard whose weakening cannot be reviewed.
+#
+# It happened here: a glob translator used a placeholder character between two
+# passes, and the byte written was NUL. The file ran correctly and read as
+# binary for its whole life in the repository.
+#
+# Detected by comparing each file against itself with NULs stripped, which is
+# exactly the property that matters and needs no guess about file types.
+nul_files=""
+nul_checked=0
+while IFS= read -r f; do
+  case "$f" in *.png|*.jpg|*.jpeg|*.gif|*.ico|*.pdf|*.woff|*.woff2|*.ttf) continue ;; esac
+  [ -f "$f" ] || continue
+  nul_checked=$((nul_checked + 1))
+  LC_ALL=C tr -d '\000' < "$f" | cmp -s - "$f" || nul_files="$nul_files $f"
+done <<EOF
+$(git -C "$repo" ls-files scripts .claude evals docs app/src app/tests 2>/dev/null)
+EOF
+if [ "$nul_checked" -eq 0 ]; then
+  bad "no source files were examined for NUL bytes — the probe is inert"
+elif [ -n "$nul_files" ]; then
+  bad "git cannot diff:$nul_files — a NUL byte makes it binary, and a guard nobody can review is not reviewed"
+else
+  ok "$nul_checked harness source files are text git can diff"
+fi
+
 # Every path a hook writes for itself must be one git ignores.
 #
 # A hook that leaves an untracked or modified file behind on every turn has no
