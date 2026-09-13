@@ -4,3 +4,5 @@
 {"at":"2026-09-13T02:06:08.927Z","session":"fb2095ed","requests":1891,"tokens":8379468,"output":1732160,"context":145949,"delta":1400,"subagent_tokens":1575121,"subagent_runs":7}
 {"at":"2026-09-13T02:18:08.851Z","session":"fb2095ed","requests":1909,"tokens":8446150,"output":1756426,"context":165012,"delta":66682,"subagent_tokens":1575121,"subagent_runs":7}
 {"at":"2026-09-13T02:18:17.139Z","session":"fb2095ed","requests":1911,"tokens":8452524,"output":1757066,"context":167877,"delta":6374,"subagent_tokens":1575121,"subagent_runs":7}
+{"at":"2026-09-13T04:37:15.439Z","session":"a7d72e0e","requests":412,"tokens":1275267,"output":499445,"context":407732,"delta":null,"subagent_tokens":0,"subagent_runs":0}
+{"at":"2026-09-13T04:37:41.092Z","session":"a7d72e0e","requests":416,"tokens":1280412,"output":501054,"context":409884,"delta":5145,"subagent_tokens":0,"subagent_runs":0}
