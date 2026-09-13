@@ -142,6 +142,12 @@ jobs:
       - name: Eval runner self-test
         run: bash scripts/eval-runner.sh
 
+      # learn.mjs is what makes the ledger's "verified by breaking" column
+      # earned rather than typed. Its refusal path is the part of it that
+      # matters and the part least likely to be exercised, so it is exercised.
+      - name: Learn refuses unearned rows
+        run: bash scripts/learn-check.sh
+
       # `on:` is evaluated before any step runs, so the push trigger is the one
       # line that cannot read harness.config.json. Keeping it in step with
       # git.baseBranch was a comment until this check existed, and both had

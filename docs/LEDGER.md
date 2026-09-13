@@ -64,6 +64,7 @@ happening again.
 | 39 | `$HARNESS_CONFIG`, the hook that lets a check be exercised against a fixture, was honoured by the node callers and ignored by the shell ones — so any check reached through `app-config.sh` could not be tested at all | `scripts/app-config.sh` | yes |
 | 40 | Adding a hook put an untracked file in `git status` on every turn — `.gitignore` named the three paths the hooks wrote, and the fourth was not among them. Row 25's shape, back within an hour of the row being read | `which git ignores` | yes |
 | 41 | A `doctor.sh` probe ran a hook without redirecting stdin; the hook waited for its event and blocked for ever. No output, no error, and a check that hangs never reports at all | `no hook answered --where` | yes |
+| 42 | Ledger rows were written by hand, so a row could be added whose check had never been seen to catch anything — `ledger.sh` only asks whether the named check exists | `scripts/learn-check.sh` | yes |
 
 ## Closed since, and how
 

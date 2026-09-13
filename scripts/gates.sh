@@ -130,7 +130,7 @@ run "ci trigger"          node scripts/ci-trigger.mjs
 if [ $fast -eq 1 ]; then
   skip "smoke (browser)"; skip "mutation"; skip "usage churn"
   skip "audit log tests"; skip "environment"; skip "same everywhere"
-  skip "failure ledger"; skip "eval runner"; skip "agent behaviour"
+  skip "failure ledger"; skip "eval runner"; skip "learn refuses"; skip "agent behaviour"
   skip "harness evals"
 else
   # The shell is the part the unit suite cannot reach. --quick skips it because
@@ -146,8 +146,9 @@ else
   run "environment"         bash scripts/doctor.sh
   run "same everywhere"     bash scripts/same-everywhere.sh
   run "failure ledger"      bash scripts/ledger.sh
-  if [ $quick -eq 1 ]; then skip "eval runner"; skip "agent behaviour"; skip "harness evals"; else
+  if [ $quick -eq 1 ]; then skip "eval runner"; skip "learn refuses"; skip "agent behaviour"; skip "harness evals"; else
     run "eval runner"       bash scripts/eval-runner.sh
+    run "learn refuses"     bash scripts/learn-check.sh
     run "agent behaviour"   bash scripts/agent-config-diff.sh
     run "harness evals"     bash evals/run.sh
   fi
