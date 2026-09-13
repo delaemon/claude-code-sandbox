@@ -162,6 +162,24 @@ so the line goes quiet and `turns.jsonl` keeps recording.
 how many those are. `agent_transcript_path` names where a transcript would go,
 not where one is.
 
+**The line says OVER past `context.compactAt`** (default 400,000), because a
+bare `ctx` number is not something anyone can act on. It warns and never
+compacts, and an unreadable config falls back to warning rather than to silence
+— so a quiet line always means someone set the threshold to 0 on purpose.
+
+**Compacting is a cost lever, not a correctness one, and the default says so
+rather than implying otherwise.** 400,000 is Uber's published figure, applied
+even on million-token models; their reported win is cost per session roughly
+halved. This session measured the other claim on itself and did not find it: it
+ran to 782,734 context across two compactions, and its self-corrections came at
+7.5% of substantive turns below 200k against 6.3% above 600k — no monotonic
+relationship. Where errors did trace to context, they were facts asserted from
+recall instead of re-checked, which compacting harder makes **worse**, because
+a summary drops exactly those. The failures that actually repeated — the same
+truncation five times, the same vacuous test three times — recurred minutes
+apart inside one context window. `docs/LEDGER.md` and `evals/run.sh` are the
+answer to those; a threshold is not.
+
 **Never claim to know how much quota is left.** Nothing records it: rate-limit
 state reaches a transcript only on a refusal, never while requests are being
 served. A number invented here would be believed right up until the session

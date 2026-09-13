@@ -49,6 +49,42 @@ const CACHE = process.env.SUBAGENT_CACHE
 const BREAKER_STOPS = 5;
 const BREAKER_WINDOW_MS = 60_000;
 
+/**
+ * When to say the context has grown past the point worth carrying.
+ *
+ * This hook already computes `ctx` every stop and has been printing it as a
+ * bare number, which nobody can act on without knowing what large looks like.
+ * The threshold turns it into a decision: over this, `/compact`.
+ *
+ * 400,000 is the default because it is a published, measured figure rather
+ * than one invented here -- Uber compacts at 400k even on million-token
+ * models, trading a larger window against cache bursts and re-sent input.
+ * Their result is a cost one (cost per session roughly halved), and that is
+ * the honest claim to make for it. Compacting is NOT a correctness fix: this
+ * session measured its own self-corrections against context size and found no
+ * monotonic relationship -- 7.5% of turns under 200k against 6.3% over 600k.
+ * Compacting harder can even make recall worse, because the facts that get
+ * asserted from memory are exactly the ones a summary drops.
+ *
+ * So this warns; it does not compact, and nothing here decides for you.
+ *
+ * An unreadable config falls back to warning rather than to silence, the same
+ * way block-secrets.sh over-blocks when it cannot parse its input. A threshold
+ * that quietly switched itself off would be a guard that looks like it ran.
+ * Set `context.compactAt` to 0 to turn it off deliberately, which is a
+ * different thing from it failing to load.
+ */
+const CONTEXT_LIMIT = (() => {
+  const repo = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(repo, "harness.config.json"), "utf8"));
+    const v = cfg?.context?.compactAt;
+    if (v === 0) return 0;
+    if (typeof v === "number" && v > 0) return v;
+  } catch { /* fall through to the default: warn, do not go quiet */ }
+  return 400_000;
+})();
+
 const n = (x) => x.toLocaleString("en-US");
 const sum = (u) => (u.output_tokens || 0) + (u.cache_creation_input_tokens || 0)
                  + (u.input_tokens || 0);
@@ -175,19 +211,23 @@ process.stdin.on("data", (d) => (raw += d)).on("end", () => {
     ?? findPrevious(path.join(path.dirname(TURNS), "turns.jsonl"));
   const delta = previous ? u.tokens - previous.tokens : null;
 
+  const overContext = CONTEXT_LIMIT > 0 && u.ctx >= CONTEXT_LIMIT;
   const line = `[tok] turn ${delta === null ? "first" : "+" + n(delta)}`
              + ` · session ${n(u.tokens)} (${n(u.calls)} req)`
              + ` · subagents ${n(sub.tokens)} (${sub.runs} measurable)`
-             + ` · ctx ${n(u.ctx)}`;
+             + ` · ctx ${n(u.ctx)}`
+             + (overContext ? ` · OVER ${n(CONTEXT_LIMIT)} — /compact` : "");
 
   const tripped = runaway();
 
-  // Numbers only. This file is committed to a public repository.
+  // Numbers, and flags derived from them. No content, ever: this file is
+  // committed to a public repository.
   try {
     fs.mkdirSync(path.dirname(TURNS), { recursive: true });
     fs.appendFileSync(TURNS, JSON.stringify({
       at: new Date().toISOString(), session,
       requests: u.calls, tokens: u.tokens, output: u.out, context: u.ctx,
+      context_limit: CONTEXT_LIMIT, over_context: overContext,
       delta, subagent_tokens: sub.tokens, subagent_runs: sub.runs,
     }) + "\n");
   } catch { /* read-only checkout */ }
