@@ -182,9 +182,10 @@ fi
 stage=$(mktemp -d)
 tracked_before=$(cat "$repo"/audit_log/turns.jsonl "$repo"/audit_log/subagents.jsonl \
                      "$repo"/audit_log/usage.md 2>/dev/null | cksum)
-real_t=$(ls -t "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1)
-if [ -n "$real_t" ]; then
-  printf '{"session_id":"stageprobe","transcript_path":"%s"}' "$real_t" \
+stage_probe="$stage/probe.jsonl"
+printf '{"message":{"usage":{"output_tokens":900,"cache_creation_input_tokens":4100,"input_tokens":0}}}\n' > "$stage_probe"
+if [ -s "$stage_probe" ]; then
+  printf '{"session_id":"stageprobe","transcript_path":"%s"}' "$stage_probe" \
     | USAGE_LOG="$stage/u.md" TURNS_LOG="$stage/t.jsonl" SUBAGENT_CACHE="$stage/c.json" \
       bash "$repo/.claude/hooks/log-usage.sh" >/dev/null 2>&1
 fi
@@ -208,8 +209,16 @@ usage_log="$repo/audit_log/usage.md"
 # which by then never changed either way, and it passed against a hook with the
 # guard deleted. The eval suite caught that; it is why the probe below asserts a
 # positive first.
+# Both probes are synthesised. The first version took the positive case from
+# whatever real transcript happened to be under $HOME/.claude/projects, which
+# CI does not have -- so the whole check was skipped there, printing neither ok
+# nor bad, and doctor.sh passed with the guard deleted. The eval suite caught
+# it. A check that needs the machine it runs on to be a particular machine is a
+# check that does not run.
 probe_stage=$(mktemp -d)
-real_probe=$(ls -t "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1)
+real_probe="$probe_stage/withusage.jsonl"
+printf '{"message":{"usage":{"output_tokens":900,"cache_creation_input_tokens":4100,"input_tokens":0}}}\n' \
+  > "$real_probe"
 empty_probe="$probe_stage/empty.jsonl"; printf '{"type":"user"}\n' > "$empty_probe"
 run_probe() {
   printf '{"session_id":"doctor-probe","transcript_path":"%s"}' "$1" \
@@ -217,20 +226,18 @@ run_probe() {
       SUBAGENT_CACHE="$probe_stage/c.json" \
       bash "$repo/.claude/hooks/log-usage.sh" 2>/dev/null
 }
-# Positive first: a real transcript must produce a row, or "no row" below proves
-# nothing about the guard.
-if [ -n "$real_probe" ]; then
-  run_probe "$real_probe" >/dev/null
-  if [ ! -s "$probe_stage/t.jsonl" ]; then
-    bad "log-usage wrote nothing for a readable transcript — the probe is inert"
+# Positive first: a transcript carrying usage must produce a row, or "no row"
+# below proves nothing about the guard.
+run_probe "$real_probe" >/dev/null
+if [ ! -s "$probe_stage/t.jsonl" ]; then
+  bad "log-usage wrote nothing for a readable transcript — the probe is inert"
+else
+  : > "$probe_stage/t.jsonl"; rm -f "$probe_stage/u.md"
+  run_probe "$empty_probe" >/dev/null
+  if [ -s "$probe_stage/t.jsonl" ] || [ -s "$probe_stage/u.md" ]; then
+    bad "log-usage recorded a session it could not measure"
   else
-    : > "$probe_stage/t.jsonl"; rm -f "$probe_stage/u.md"
-    run_probe "$empty_probe" >/dev/null
-    if [ -s "$probe_stage/t.jsonl" ] || [ -s "$probe_stage/u.md" ]; then
-      bad "log-usage recorded a session it could not measure"
-    else
-      ok "log-usage records nothing when it cannot measure"
-    fi
+    ok "log-usage records nothing when it cannot measure"
   fi
 fi
 rm -rf "$probe_stage"
@@ -238,8 +245,13 @@ rm -rf "$probe_stage"
 # Exit 0 carries a structured channel: JSON on stdout, whose additionalContext
 # reaches the next turn. It is the reason the usage line costs no tool call, so
 # it is asserted rather than assumed.
-real_t=$(ls -t "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1)
-if [ -n "$real_t" ]; then
+# Synthesised, not taken from whatever transcript happens to exist under $HOME.
+# Two checks here were written that way and did not run in CI at all, printing
+# neither ok nor bad -- a guard that needs a particular machine is a guard that
+# does not run.
+ctx_dir=$(mktemp -d); real_t="$ctx_dir/probe.jsonl"
+printf '{"message":{"usage":{"output_tokens":900,"cache_creation_input_tokens":4100,"input_tokens":0}}}\n' > "$real_t"
+if [ -s "$real_t" ]; then
   # Every output path the hook writes has to be redirected, not just the one
   # that existed when the probe was written. It gained turns.jsonl and this
   # probe left a `ctx-prob` row in the real one -- the same contamination that
@@ -260,6 +272,7 @@ if [ -n "$real_t" ]; then
     # Silence here is correct when the rounded row has not moved: the emission
     # is bounded so a Stop hook cannot talk itself into a loop. Reported rather
     # than passed silently, so a channel that has genuinely died is visible.
+    rm -rf "$ctx_dir"
     note "log-usage stayed silent — the usage row has not moved since last stop"
   else
     bad "log-usage no longer emits additionalContext on exit 0"
@@ -277,8 +290,7 @@ fi
 # insurance -- and insurance nobody checks is the thing this repository refuses.
 brk_dir=$(mktemp -d)
 brk_probe="$brk_dir/t.jsonl"
-head -400 "$(ls -t "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1)" \
-  > "$brk_probe" 2>/dev/null
+printf '{"message":{"usage":{"output_tokens":900,"cache_creation_input_tokens":4100,"input_tokens":0}}}\n' > "$brk_probe"
 if [ -s "$brk_probe" ]; then
   brk_last=""
   for i in 1 2 3 4 5 6; do

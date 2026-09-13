@@ -61,6 +61,14 @@ jobs:
       # can happen again, and the table would otherwise still claim it cannot.
       # CLAUDE.md called a grep "the check" keeping clocks and randomness out of
       # everything but main.ts. Nothing ran it. This does.
+      # doctor.sh must run the same checks here as it does on a workstation.
+      # Three of its cases took their probe from $HOME/.claude/projects, which
+      # this runner does not have, so they were skipped -- printing neither ok
+      # nor bad, and leaving doctor.sh green with those guards deleted.
+      - name: Same everywhere
+        working-directory: .
+        run: bash scripts/same-everywhere.sh
+
       - name: Clock boundary
         working-directory: .
         run: node scripts/clock-boundary.mjs

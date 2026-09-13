@@ -43,6 +43,7 @@ happening again.
 | 25 | Committing the per-turn log ran CI, whose completion sent a PR notification, which woke a turn, which appended another line — a loop sustaining itself about once a minute with no input | `scripts/fold-logs.mjs` | observed live |
 | 26 | Only one of the two hooks that write logs was staged, so `subagents.jsonl` kept dirtying the tree by itself — one writer fixed reads as fixed until the other fires | `hooks write only staged logs` | yes |
 | 27 | Staging the logs silently disabled the check that the hook records nothing it cannot measure: it compared tracked files the hook had stopped writing, so it passed with the guard deleted | `log-usage records nothing` | yes |
+| 28 | Three `doctor.sh` cases took their probe from `$HOME/.claude/projects`, which CI does not have, so they were skipped there — printing neither ok nor bad, leaving doctor green with the guards they cover deleted | `scripts/same-everywhere.sh` | yes |
 
 ## Closed since, and how
 
@@ -125,6 +126,24 @@ requires the tracked logs to be byte-identical afterwards.
 
 Verified in nine cases, including that a fold which cannot write exits 1 and
 leaves the lines staged rather than reporting a fold that did not happen.
+
+**28 is the same shape as 1, eleven rows later.** Row 1 was hooks that parsed
+with `python3`, present in the cloud image and absent in a container, so the
+secret guard exited 0 where python3 was missing. Row 28 is `doctor.sh` cases
+that took their probe from a real transcript under `$HOME/.claude/projects`,
+present here and absent on the runner, so three checks printed nothing at all
+in CI and doctor stayed green with their guards deleted.
+
+Both are a check that needs the machine it runs on to be a particular machine.
+The probes are synthesised now, and `scripts/same-everywhere.sh` compares the
+checks doctor emits with `$HOME` as it is against the same list with `$HOME`
+empty: any check present in one and not the other fails it.
+
+Finding it took two passes. The first attempt to verify the new script reported
+that it did not catch a reintroduced dependency — because the `sed` meant to
+reintroduce it had not matched, so nothing was broken and the check correctly
+said nothing was wrong. Confirming the break lands before reading the verdict is
+the habit this ledger keeps being about, and it was skipped again here.
 
 **27 is the cost of 25 and 26, and the eval suite is what charged it.** Moving
 the hooks to staged paths left `doctor.sh` comparing tracked files that the
