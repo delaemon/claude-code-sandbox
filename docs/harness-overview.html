@@ -2,216 +2,285 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --ink: #16202b; --mute: #5b6b7c; --line: #d3dce5; --bg: #f4f7fa;
-    --card: #ffffff; --accent: #1f6feb; --warn: #b4451a; --good: #14794a;
+    --ink: #14202c; --mute: #5c6c7d; --faint: #8494a3;
+    --line: #d4dde6; --bg: #f3f6fa; --card: #ffffff;
+    --accent: #1f6feb; --warn: #b4451a; --good: #14794a; --deep: #0f2740;
   }
   body {
-    width: 1680px; padding: 40px 44px 30px;
+    width: 1760px; padding: 40px 44px 32px;
     font-family: "IPAPGothic", "IPAGothic", sans-serif;
     background: var(--bg); color: var(--ink); line-height: 1.55;
   }
   code, .mono { font-family: "Liberation Mono", monospace; }
-  h1 { font-size: 34px; letter-spacing: -.01em; }
-  .sub { color: var(--mute); font-size: 16px; margin-top: 6px; }
-  .rule { height: 3px; background: var(--ink); margin: 16px 0 22px; }
-  .grid { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 18px; }
+
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; }
+  h1 { font-size: 33px; letter-spacing: -.01em; }
+  .sub { color: var(--mute); font-size: 15px; margin-top: 7px; }
+  .stamp {
+    text-align: right; font-size: 13px; color: var(--faint); white-space: nowrap;
+  }
+  .stamp b { display: block; font-size: 27px; color: var(--ink); letter-spacing: -.01em; }
+  .rule { height: 3px; background: var(--ink); margin: 15px 0 20px; }
+
+  .creed {
+    background: var(--deep); color: #eaf1f8; border-radius: 11px;
+    padding: 18px 24px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 26px;
+  }
+  .creed .big { font-size: 25px; font-weight: bold; letter-spacing: -.01em; white-space: nowrap; }
+  .creed .why { font-size: 14.5px; color: #b8ccdf; line-height: 1.6; }
+
+  .grid { display: grid; gap: 17px; }
+  .g3 { grid-template-columns: 1.02fr 1fr 1.06fr; }
+  .g2 { grid-template-columns: 1.28fr 1fr; margin-top: 17px; }
+
   .card {
     background: var(--card); border: 1px solid var(--line);
-    border-radius: 10px; padding: 16px 18px 18px;
+    border-radius: 10px; padding: 15px 17px 17px;
   }
   .card > h2 {
-    font-size: 17px; margin-bottom: 4px;
+    font-size: 16.5px; margin-bottom: 3px;
     display: flex; align-items: baseline; gap: 9px;
   }
-  .num {
+  .card > h2 .n {
     font-size: 12px; color: #fff; background: var(--ink);
     border-radius: 4px; padding: 1px 7px; font-weight: normal;
   }
-  .lede { font-size: 13.5px; color: var(--mute); margin-bottom: 12px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { color: var(--mute); font-weight: normal; font-size: 12px; }
-  tr:last-child td { border-bottom: none; }
-  .tag { font-size: 11.5px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
-  .t-must { background: #fdecea; color: var(--warn); }
-  .t-may  { background: #eef4fd; color: var(--accent); }
-  .t-never{ background: #e6f4ec; color: var(--good); }
-  .flow {
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    font-size: 13px; margin: 10px 0 12px;
+  .card > .lead { font-size: 13px; color: var(--mute); margin-bottom: 11px; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  td, th { padding: 5px 7px; vertical-align: top; text-align: left; }
+  tbody tr + tr td { border-top: 1px solid #e8eef4; }
+  th { font-size: 11.5px; color: var(--faint); font-weight: normal; padding-bottom: 2px; }
+  td.k { white-space: nowrap; color: var(--mute); }
+  td.mono, .mono.sm { font-size: 12.5px; }
+
+  .loop { margin-top: 2px; }
+  .step { display: flex; gap: 11px; align-items: flex-start; padding: 6px 0; }
+  .step + .step { border-top: 1px dashed #e2e9f0; }
+  .dot {
+    width: 21px; height: 21px; border-radius: 50%; flex: none; margin-top: 1px;
+    background: var(--accent); color: #fff; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
   }
-  .node {
-    border: 1px solid var(--line); background: #fbfdff;
-    border-radius: 7px; padding: 7px 11px; text-align: center;
+  .step.last .dot { background: var(--warn); }
+  .step b { font-size: 13.5px; }
+  .step p { font-size: 12.5px; color: var(--mute); line-height: 1.5; }
+
+  .shape { padding: 9px 0; }
+  .shape + .shape { border-top: 1px solid #e8eef4; }
+  .shape b { font-size: 13.5px; color: var(--warn); }
+  .shape p { font-size: 12.5px; color: var(--mute); margin-top: 2px; line-height: 1.5; }
+  .shape .cure { font-size: 12.5px; color: var(--good); margin-top: 3px; }
+
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .pill {
+    font-size: 12.5px; border: 1px solid var(--line); border-radius: 999px;
+    padding: 3px 11px; background: #fbfdff; white-space: nowrap;
   }
-  .node b { display: block; font-size: 13px; }
-  .node span { font-size: 11.5px; color: var(--mute); }
-  .arrow { color: var(--mute); font-size: 18px; }
-  .exit { display: grid; grid-template-columns: 62px 1fr; gap: 6px 12px; font-size: 13px; margin-top: 6px; }
-  .exit div:nth-child(odd) { font-family: "Liberation Mono", monospace; font-weight: bold; }
-  .e0 { color: var(--good); } .e2 { color: var(--warn); } .ex { color: var(--mute); }
-  .inc { margin-top: 12px; font-size: 12.5px; }
-  .inc li { margin: 7px 0 0 16px; }
-  .ev {
-    font-family: "Liberation Mono", monospace; font-size: 11.5px;
-    background: #16202b; color: #d7e3ee; padding: 7px 9px;
-    border-radius: 5px; margin-top: 5px; white-space: pre; overflow: hidden;
+  .pill.on { border-color: #bcd8f5; background: #eef6ff; color: #12508f; }
+
+  .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 11px; margin-top: 9px; }
+  .kpi div { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; background: #fbfdff; }
+  .kpi b { display: block; font-size: 21px; letter-spacing: -.01em; }
+  .kpi span { font-size: 11.5px; color: var(--mute); }
+
+  footer {
+    margin-top: 18px; padding-top: 13px; border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; gap: 26px;
+    font-size: 12.5px; color: var(--mute);
   }
-  .ev .hi { color: #ff9d73; }
-  .stats { display: flex; gap: 28px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
-  .stat b { font-size: 20px; display: block; }
-  .stat span { font-size: 11.5px; color: var(--mute); }
-  .pill { font-size: 11.5px; color: var(--mute); }
-  .k { font-weight: bold; }
+  footer b { color: var(--ink); }
 </style>
 
-<h1>ハーネスエンジニアリング — このリポジトリで確かめたこと</h1>
-<div class="sub">
-  claude-code-sandbox / <span class="mono">puyo-puyo-web</span> ブランチ &nbsp;·&nbsp;
-  エージェントの挙動を「お願い」ではなく「仕組み」で決める
-</div>
+<header>
+  <div>
+    <h1>ハーネスエンジニアリング — スマホからの一言を、検証済みの成果に変える</h1>
+    <div class="sub">
+      delaemon/claude-code-sandbox · ブランチ <code>puyo-puyo-web</code> ·
+      ゲーム（ぷよぷよ）は成果物、ハーネスが主題
+    </div>
+  </div>
+  <div class="stamp">失敗台帳<b>28 行 / open 0</b>すべて実行可能な検査に紐付く</div>
+</header>
 <div class="rule"></div>
 
-<div class="grid">
+<div class="creed">
+  <div class="big">動けないガードは、<br>通ったガードのように見えてはならない</div>
+  <div class="why">
+    このリポジトリの全設計がこの一文から出ている。検査は「落ちる」ことより
+    <b>「走らなかったことを隠さない」</b>ことが難しい ——
+    パーサが無い / 比較対象が両方とも空 / 手前のガードで早期 return /
+    そのマシンにしか無いファイルに依存。どれも緑に見える。<br>
+    <b>だから終了コードを 3 つに分ける：0=通った、1=落ちた、2または3=走れなかった。</b>
+  </div>
+</div>
 
-  <!-- 1 -->
+<div class="grid g3">
+
   <div class="card">
-    <h2><span class="num">1</span>何が生き残るか</h2>
-    <div class="lede">
-      VM は無操作で回収される。会話履歴は戻るが VM は戻らない。<br>
-      <span class="k">永続するのは git にコミットしたものだけ。</span>
-    </div>
-    <table>
-      <tr><th>層</th><th>読まれ方</th><th>剪定</th></tr>
-      <tr>
-        <td><code>CLAUDE.md</code><br><span class="pill">現在有効なルール</span></td>
-        <td>毎セッション<b>全文</b><br><span class="pill">≒600 tok/節</span></td>
-        <td><span class="tag t-must">必須</span></td>
-      </tr>
-      <tr>
-        <td><code>docs/worklog/</code><br><span class="pill">判断と理由</span></td>
-        <td>必要時に読む</td>
-        <td><span class="tag t-may">可</span></td>
-      </tr>
-      <tr>
-        <td><code>audit_log/</code> + git履歴<br><span class="pill">何が起きたか</span></td>
-        <td>事後に検索</td>
-        <td><span class="tag t-never">禁止</span></td>
-      </tr>
-    </table>
-    <div class="inc">
-      <span class="k">連携ログ ≠ 監査ログ。</span>片方は剪定できないと使えず、
-      もう片方は剪定できたら証拠にならない。<b>同じファイルで兼ねられない。</b>
-      <ul>
-        <li>生トランスクリプト 2.6&nbsp;MB &nbsp;→&nbsp; 蒸留したログ 84&nbsp;KB（約 1/30）</li>
-        <li>記録は誤りも同じ効率で永続化する → <b>出典（誰の判断か）を書く</b></li>
-      </ul>
+    <h2><span class="n">1</span>改善ループ</h2>
+    <div class="lead">失敗を、二度と起きない形に変換する手順</div>
+    <div class="loop">
+      <div class="step"><div class="dot">1</div><div>
+        <b>失敗を「挙動」として書く</b>
+        <p>「スクリプトが間違っていた」ではなく「node が無いとき exit 0 だった」。挙動なら assert できる。</p>
+      </div></div>
+      <div class="step"><div class="dot">2</div><div>
+        <b>置き場所を選ぶ</b>
+        <p>毎回必ず起きるなら hook。環境で差が出るなら doctor。base と比べて初めて見えるなら CI。</p>
+      </div></div>
+      <div class="step"><div class="dot">3</div><div>
+        <b>空虚に通らない検査を書く</b>
+        <p>ガードに実際に到達する入力で。比較の前に「在る」ことを先に assert する。</p>
+      </div></div>
+      <div class="step"><div class="dot">4</div><div>
+        <b>故意に壊して、落ちるのを見る</b>
+        <p>使い捨てコピーで。<b>破壊が適用されたことを先に確認する。</b>通るところしか見ていない検査は証拠ではない。</p>
+      </div></div>
+      <div class="step"><div class="dot">5</div><div>
+        <b>台帳に記録する</b>
+        <p><code>docs/LEDGER.md</code> に失敗・検査・壊して確認した旨。検査が実在するかを <code>ledger.sh</code> が検証する。</p>
+      </div></div>
+      <div class="step last"><div class="dot">6</div><div>
+        <b>検査が覆った散文を消す</b>
+        <p>CLAUDE.md は毎セッション全文ロードされる。<b>飛ばされがちな唯一の手順で、飛ばすと固定費だけが積む。</b></p>
+      </div></div>
     </div>
   </div>
 
-  <!-- 2 -->
   <div class="card">
-    <h2><span class="num">2</span>2環境・1フロー</h2>
-    <div class="lede">スタックは切り替えない。切り替わるのは<b>フィードバックの経路</b>だけ。</div>
-    <div class="flow">
-      <div class="node"><b>クラウド VM</b><span>モバイル / web</span></div>
-      <div class="arrow">→</div>
-      <div class="node" style="background:#eef4fd;border-color:#b9d2f7">
-        <b>PR</b><span>base: puyo-puyo-web</span>
-      </div>
-      <div class="arrow">←</div>
-      <div class="node"><b>dev container</b><span>PC / Node 22</span></div>
-    </div>
+    <h2><span class="n">2</span>4 つの層</h2>
+    <div class="lead">希少資源は<b>あなたのプロンプト</b>。トークンでも時間でもない</div>
     <table>
-      <tr><th></th><th>クラウド</th><th>dev container</th></tr>
-      <tr><td>型エラー</td><td><code>typecheck.sh</code></td><td>LSP + 同フック</td></tr>
-      <tr><td>PR 作成</td><td>GitHub ツール</td><td><code>gh</code></td></tr>
-      <tr><td>編集の着地</td><td>VM 内（消える）</td><td>実ディスク</td></tr>
-      <tr><td>時計</td><td colspan="2"><code>main.ts</code> のみ（全層共通の境界）</td></tr>
+      <tbody>
+        <tr><td class="k">受付</td><td>
+          短い一言 → 完全な作業<br>
+          <span class="mono sm">/ship /harden /gates /prune</span>
+        </td></tr>
+        <tr><td class="k">実行</td><td>
+          再現可能な並列作業<br>
+          <span class="mono sm">verifier / harness-auditor / implementer</span>
+        </td></tr>
+        <tr><td class="k">検証</td><td>
+          誰も見ていない、どう証明するか<br>
+          <span class="mono sm">gates.sh — 11 ゲート</span>
+        </td></tr>
+        <tr><td class="k">改善</td><td>
+          次回はなぜ良くなるのか<br>
+          <span class="mono sm">LEDGER.md + ledger.sh + evals/</span>
+        </td></tr>
+        <tr><td class="k">帰還路</td><td>
+          状態がプロンプトを消費せず届く<br>
+          <span class="mono sm">exit 0 + additionalContext</span>
+        </td></tr>
+      </tbody>
     </table>
-    <div class="inc">
-      <span class="k">同一性は主張ではなく検査。</span>
-      <code>scripts/doctor.sh</code> が両環境と CI で<b>フックを実際に走らせ終了コードを検証</b>する。
-      <div class="ev">checked: 14 ok, 2 note, <span class="hi">0 failed</span></div>
+    <h2 style="margin-top:14px"><span class="n">3</span>フック契約</h2>
+    <div class="lead">exit 0 は無音ではない —— 誤解が毎ターンのツール呼び出しを生んだ</div>
+    <table>
+      <tbody>
+        <tr><td class="k mono">exit 2</td><td>ブロックする。理由は stderr</td></tr>
+        <tr><td class="k mono">exit 0</td><td><b>stdout の JSON が読まれる。</b><br><code>additionalContext</code> が次ターンへ届く</td></tr>
+        <tr><td class="k mono">その他</td><td>エラーを表示、ブロックしない</td></tr>
+      </tbody>
+    </table>
+    <div class="pills">
+      <span class="pill on">SessionStart</span><span class="pill on">PreToolUse</span>
+      <span class="pill on">PostToolUse</span><span class="pill on">Stop</span>
+      <span class="pill on">SubagentStop</span>
+      <span class="pill">…他 25+ は未使用</span>
     </div>
   </div>
 
-  <!-- 3 -->
   <div class="card">
-    <h2><span class="num">3</span>フック = 強制力</h2>
-    <div class="lede">
-      <code>CLAUDE.md</code> は助言で、見落とされうる。<br>
-      <span class="k">フックはハーネスが実行する。必ず走る。</span>
+    <h2><span class="n">4</span>繰り返した失敗の「形」</h2>
+    <div class="lead">28 行の台帳のうち、過半数がこの 4 型に収まる</div>
+
+    <div class="shape">
+      <b>A. 変形後の値を、変形前の綴りで探す</b>
+      <p>ID は 8 文字に切られ、数値は丸められ、vitest は CI でだけ色を付ける。
+         <b>5 回発生</b>。最後の 1 回は変形していたのが自分のコードではなく外部ツールだった。</p>
+      <div class="cure">→ 剥がす・導出する。二度書かない</div>
     </div>
-    <table>
-      <tr><td><code>SessionStart</code></td><td>依存導入 + ブランチ位置の警告</td></tr>
-      <tr><td><code>PreToolUse</code></td><td><code>.env</code> / <code>*.key</code> の編集を拒否</td></tr>
-      <tr><td><code>PostToolUse</code></td><td><code>.ts</code> 編集後に型チェック</td></tr>
-    </table>
-    <div class="inc" style="margin-top:14px">
-      <span class="k">終了コード契約</span>
-      <div class="exit">
-        <div class="e0">exit 0</div><div>通す。<b>stderr は Claude に届かない</b></div>
-        <div class="e2">exit 2</div><div>ブロック。<b>stderr が理由として届く</b></div>
-        <div class="ex">その他</div><div>エラー表示のみ。止まらない</div>
-      </div>
-      <div style="margin-top:10px">
-        壊れたフックは<b>静かに素通り</b>する。<br>
-        → 止めるケースと通すケースの<b>両方を手で叩いてから</b>コミット。
-      </div>
+
+    <div class="shape">
+      <b>B. 全滅が合格に見える</b>
+      <p>存在しないファイルの cksum 同士は一致する。壊れたフックは何も書かないので「変化なし」。
+         ハーネスが壊れていたため md5 が 3 つとも空文字列で「churn なし」と判定した。</p>
+      <div class="cure">→ 否定の前に肯定を assert する（在る・空でない・行がある）</div>
+    </div>
+
+    <div class="shape">
+      <b>C. そのマシンでしか走らない</b>
+      <p>python3 がある環境／ない環境。<code>$HOME/.claude</code> がある環境／ない環境。
+         <b>CI で 3 検査が無言のまま未実行</b>だったが、どれも台帳に「検証済み」と書かれていた。</p>
+      <div class="cure">→ プローブを合成する。<code>same-everywhere.sh</code> で検査数の一致を検証</div>
+    </div>
+
+    <div class="shape">
+      <b>D. 一方を直すと、もう一方が黙って壊れる</b>
+      <p>ログを staging に移したら doctor の検査が「変化しない 2 つ」を比べ始めた。
+         2 つある書き手の 1 つだけ直すと、もう 1 つが発火するまで直ったように見える。</p>
+      <div class="cure">→ eval が元の失敗を再生する。読んで考えるだけでは気づけない</div>
     </div>
   </div>
 </div>
 
-<div class="grid" style="margin-top:18px; grid-template-columns: 1.15fr 2.08fr;">
-
-  <!-- 4 -->
+<div class="grid g2">
   <div class="card">
-    <h2><span class="num">4</span>マルチエージェント</h2>
-    <div class="lede">
-      サブエージェントは<b>コールドで起動</b>し、互いのログを見られない。
-      共有手段はファイルだけ。
+    <h2><span class="n">5</span>11 のゲート</h2>
+    <div class="lead"><code>bash scripts/gates.sh</code> —— 「push してよいか」の単一の答え</div>
+    <div class="pills">
+      <span class="pill">typecheck</span><span class="pill">tests</span>
+      <span class="pill on">clock boundary</span><span class="pill on">mutation</span>
+      <span class="pill on">usage churn</span><span class="pill">audit log tests</span>
+      <span class="pill">environment</span><span class="pill on">same everywhere</span>
+      <span class="pill on">failure ledger</span><span class="pill on">agent behaviour</span>
+      <span class="pill on">harness evals</span>
     </div>
-    <ul class="inc" style="margin-top:0">
-      <li><b>走らせる前に契約を固定。</b>ファイル所有権・盤面の <code>board[y][x]</code>・npm scripts</li>
-      <li><b>並列では相互参照は成立しない。</b>本物になるのは次ラウンドから</li>
-      <li><b>報告は主張であって成果物ではない。</b>差分を読み、挙動を自分で再実行してからコミット</li>
-      <li>権限・設定ファイルの変更は<b>必ず自分で検証</b>（今回 <code>npm install</code> の許可を削除）</li>
-    </ul>
-  </div>
-
-  <!-- 5 -->
-  <div class="card">
-    <h2><span class="num">5</span>実際に起きた事故と、入れた検出</h2>
-    <div class="lede">どれも「動いていないのに、動いているように見えた」。仕組みを足すまで誰も気づけなかった。</div>
-    <table>
-      <tr><th style="width:31%">事故</th><th style="width:34%">なぜ気づけなかったか</th><th>入れた検出</th></tr>
-      <tr>
-        <td>フックが <code>python3</code> 依存。無い環境でシークレット保護が消滅</td>
-        <td>失敗ではなく <b>exit 0 で素通り</b>。ログにも何も出ない</td>
-        <td><code>node</code> へ移行 + パーサ不在でも生入力を照合して拒否。<code>doctor.sh</code> が毎回実行して検証</td>
-      </tr>
-      <tr>
-        <td>マージ済み PR のブランチに commit を継続</td>
-        <td>検出する仕組みが<b>1つも無かった</b></td>
-        <td><code>branch-state.sh</code>：<span class="mono">behind&gt;0 かつ ahead=0</span> → <b>STOP</b>（SessionStart と CI）</td>
-      </tr>
-      <tr>
-        <td>推測した規約が <code>CLAUDE.md</code> に入り「確定事項」化</td>
-        <td>書かれた時点で検証されなくなる</td>
-        <td>訂正を記録 + <b>出典を書く</b>（本人の発言か、推測か）</td>
-      </tr>
+    <div class="lead" style="margin-top:11px">
+      青は<b>ハーネス自身</b>を検査するもの。ゲームを検査するものより多い ——
+      それがこのリポジトリの主題を表している。
+    </div>
+    <table style="margin-top:4px">
+      <tbody>
+        <tr><td class="k mono">mutation</td><td>挙動を壊して、テストが気づくことを要求。7 mutant。<b>パレットの変異は入れない</b>（色値は設計上の選択で、正しさではない）</td></tr>
+        <tr><td class="k mono">harness evals</td><td>台帳の各行を再生し、名指しの検査が<b>落ちる</b>ことを確認。<b>破壊の前に通ることも要求</b></td></tr>
+        <tr><td class="k mono">same everywhere</td><td><code>$HOME</code> の有無で doctor の検査数が一致するか</td></tr>
+      </tbody>
     </table>
-    <div class="ev">$ echo '{"tool_input":{"file_path":".../.env"}}' | bash .claude/hooks/block-secrets.sh
-.claude/hooks/block-secrets.sh: line 10: python3: command not found
-exit=<span class="hi">0</span>   ← .env への書き込みが通っていた</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">6</span>クラウド運用で効いた数字</h2>
+    <div class="lead">推測ではなく実測。すべてこのセッションから</div>
+    <div class="kpi">
+      <div><b>356,000</b><span>変化なしの 2 時間で消えたトークン。監視は「裏で静かに」動かない</span></div>
+      <div><b>×5</b><span>文脈が 150k→730k に育つと、同じ確認の単価がこれだけ上がる</span></div>
+      <div><b>6 / 10</b><span>commit→CI→通知→ターン のループが生んだコミットの割合</span></div>
+      <div><b>14</b><span>「未解決を閉じる」作業中に新たに見つかった欠陥</span></div>
+    </div>
+    <table style="margin-top:12px">
+      <tbody>
+        <tr><td class="k">測れないもの</td><td><b>利用枠の残量</b>。レート制限は<b>拒否された瞬間にしか記録されない</b>。
+          ここに推定値を置くと、余裕があると判断した直後に止まる</td></tr>
+        <tr><td class="k">ループ</td><td>追跡ファイルが毎ターン変わると<b>静止状態が無い</b>。
+          コミットすれば CI→通知、しなければ催促 —— どちらもターンを生む。
+          <b>源を断つ</b>（git 管理外に staging）</td></tr>
+        <tr><td class="k">エージェント</td><td>初回実行で、私が 1 時間前に「閉じた」と報告した検査を<b>4 通りで破った</b></td></tr>
+      </tbody>
+    </table>
   </div>
 </div>
 
-<div class="stats">
-  <div class="stat"><b>190</b><span>puyopuyo tests（時計なし・flake なし）</span></div>
-  <div class="stat"><b>24</b><span>redactor tests（公開リポジトリの防護）</span></div>
-  <div class="stat"><b>6</b><span>サブエージェント実行（全文を監査ログへ）</span></div>
-  <div class="stat"><b>3</b><span>フック（SessionStart / Pre / Post）</span></div>
-  <div class="stat"><b>0</b><span>デフォルトブランチへのマージ（終端は puyo-puyo-web）</span></div>
-</div>
+<footer>
+  <div>
+    <b>散文よりフック。</b>CLAUDE.md は読み飛ばされうるが、フックはハーネスが実行する。
+    ただし<b>フックは書いた瞬間から壊れうる</b>ので、フック自身を検査する層が要る。
+  </div>
+  <div>
+    <b>検査を足すと、別の検査が静かに壊れる。</b>
+    連鎖を止めたのは毎回「元の失敗を再生する」仕組みだった。
+  </div>
+</footer>
