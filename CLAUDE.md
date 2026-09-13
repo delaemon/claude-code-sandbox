@@ -4,63 +4,69 @@ Guidance for Claude Code working in this repository.
 
 ## What this repository is
 
-A browser Puyo Puyo in TypeScript, and the harness that develops it. The game
-is the deliverable; the harness is the point, since this repository doubles as a
-sandbox for practising multi-agent development.
+A reusable harness for agentic development, and nothing else yet. The
+application is whatever the next project puts here; the harness is the point.
+
+Everything project-specific lives in **`harness.config.json`** — where the code
+is, how to install, typecheck and test it, which mutants to apply, which branch
+is the integration branch. No script, hook or workflow knows a directory name.
+Adding a hardcoded path to one is the thing to avoid here.
 
 | Path | Holds |
 | --- | --- |
-| `puyopuyo/` | The game. The only application code here. |
-| `.claude/` | Hooks and settings — the part of the setup that survives a VM reclaim. |
-| `docs/worklog/` | `CONTRACT.md`, what parallel agents must agree on before they start, and one log per agent run. |
-| `audit_log/` | Redacted transcripts of every agent run, the exporter that writes them, and `usage.md` — what each session spent. |
-| `.github/workflows/` | CI. |
+| `harness.config.json` | The only file that knows what this harness is pointed at. |
+| `.claude/` | Hooks, agents, commands and settings — the part that survives a VM reclaim. |
+| `scripts/` | The gates. `gates.sh` runs them all and gives one verdict. |
+| `evals/` | Replays the failures in `docs/LEDGER.md` against the checks that claim to catch them. |
+| `docs/LEDGER.md` | Every failure this harness has had, and the check that catches it now. |
+| `docs/worklog/` | `CONTRACT.md`, what parallel agents must agree on before they start, and one log per run. |
+| `audit_log/` | Redacted transcripts of every agent run, and what each session spent. |
+| `.github/workflows/` | CI — the same gates in a third environment. |
 
-## Puyo Puyo (`puyopuyo/`)
+## The one rule
 
-TypeScript + Vite, tested with Vitest. No framework and no runtime
-dependencies. Run everything with `puyopuyo/` as the working directory:
+**A guard that cannot run must not look like a guard that passed.** Every
+failure in `docs/LEDGER.md` is a version of it, and the exit codes carry it:
 
-```bash
-npm ci
-npm run dev        # play it
-npm test
-npm run typecheck
-npm run build
-```
+| exit | means | `gates.sh` shows |
+| --- | --- | --- |
+| 0 | ran, passed | `ok` |
+| 1 | ran, failed | `FAIL` |
+| 2 | could not look | `FAIL` — a broken guard is a failure |
+| 3 | not configured | `note  did not run` |
 
-The architecture is one idea applied repeatedly: **everything that makes code
-hard to test is pushed outward, and `main.ts` absorbs all of it.**
+With no `app.dir` set, typecheck, tests, the clock boundary and mutation
+testing report **3**. They are not green. Keep it that way: a template that
+printed `ok` for a check it never performed would teach the opposite of its
+own lesson.
 
-| Layer | Rule |
-| --- | --- |
-| `src/core/` | Board, gravity, groups, chain resolution. Plain data in and out. No DOM, no timers, no randomness. |
-| `src/game/` | `step(state, input)`. Time arrives as `tick(ms)`; the queue's `rng` is injected. |
-| `src/score/` | Scoring over a `ResolveResult`. Depends on `core` and nothing else. |
-| `src/input/` | Keyboard with DAS/ARR, and touch gestures. Both advance via `advance(ms)`, never a timer; `combineInputs` presents them to the loop as one. |
-| `src/render/` | Geometry and drawing. Takes state and a context. |
-| `src/main.ts` | **The only file that may read a clock or generate randomness.** |
+## Pointing it at an application
 
-Keep that boundary. It is why the whole suite runs with no clock and nothing
-flakes, and `scripts/clock-boundary.mjs` is what holds it — it strips comments
-first, because several files describe the rule in prose, and it refuses to
-report a pass when `main.ts` no longer matches its pattern.
+Set `app.dir` in `harness.config.json` and the application gates turn on.
+`install`, `typecheck` and `test` are the commands to run inside that
+directory.
 
-Two conventions worth repeating because getting them wrong fails quietly:
+`testReportsFailures` is the regex that means "the suite reported a failed
+test". Mutation testing needs it because **a non-zero exit is not a kill** — a
+mutant that breaks the parser or hangs also exits non-zero, with nothing having
+asserted on the behaviour it claims to test.
 
-- **`board[y][x]`, `y` downward.** Transposed, the game almost works.
-- **The hidden row (row 0) does not pop.** It is `resolve`'s `hiddenRows`
-  option, defaulting to 0 so the rule tests still exercise any board; the game
-  layer passes `HIDDEN_ROWS`.
+`clockBoundary` is opt-in and off by default: pushing clocks and randomness to a
+single file is a real design choice, not every project makes it, and a check
+configured for a project that did not make it fails on correct code.
+`evals/fixtures/clock/` is a fixture, not an application — it exists so the
+clock check is still exercised when no project is configured.
 
-Board geometry and the chain rules are fixed in `docs/worklog/CONTRACT.md`.
-`tsconfig.json` sets `incremental` with its build info under
-`node_modules/.cache/`, so a per-edit `typecheck` costs about a second.
+**When adding a test, ask whether a plausible bug in the code it covers would
+fail it. If not, add a mutant.** Mutants must damage **behaviour, never data**:
+the first attempt to prove a renderer's colour tests bit did it by permuting the
+palette, which passes, correctly, because the expectations are written against
+that same palette.
 
 ## Two environments, one flow
 
-This repository is worked on from two places, and the flow is the same from
-either: **work on a session branch, open a PR against `puyo-puyo-web`, merge.**
+The same flow from a cloud session and from a dev container: work on a session
+branch, open a PR against the integration branch, merge.
 
 | | Cloud session (mobile, web) | Dev container (a machine) |
 | --- | --- | --- |
@@ -71,52 +77,38 @@ either: **work on a session branch, open a PR against `puyo-puyo-web`, merge.**
 | Type errors surface via | `hooks/typecheck.sh` | the language server, plus the same hook |
 | Edits land | in the VM; lost unless pushed | on your disk immediately |
 
-Everything that makes the flow work is committed, so neither environment needs
-setting up by hand: `.claude/` carries the hooks and settings, `.devcontainer/`
-carries the container, and `.github/workflows/` carries CI.
-
-**`bash scripts/gates.sh` is the one command for "is this ready to push"** —
-typecheck, tests, `doctor.sh`, the ledger and the config review. `doctor.sh`
-runs each hook and asserts its exit code, because a hook that works in one
-environment and quietly does nothing in the other is the failure that matters
-here. CI runs both, so drift is caught rather than discovered.
+**`bash scripts/gates.sh` is the one command for "is this ready to push".**
+`doctor.sh` runs each hook and asserts its exit code, because a hook that works
+in one environment and quietly does nothing in the other is the failure that
+matters here. `same-everywhere.sh` asserts `doctor.sh` itself runs the same
+checks in both. CI runs all of them, so drift is caught rather than discovered.
 
 Follow from this when adding to the harness:
 
-- **Depend on `node`, not `python3`.** The project is TypeScript, so node exists
-  wherever this repository is usable. Python is optional and only
+- **Depend on `node`, not `python3`.** Node is required by the harness itself,
+  so it exists wherever this repository is usable. Python is optional and only
   `audit_log`'s tests use it.
 - **A guard that cannot run must not look like a guard that passed.**
   `block-secrets.sh` falls back to matching its raw input when no parser is
   available, and still refuses.
 - **Add a case to `doctor.sh`** for anything new that could differ between the
-  two.
+  two environments.
 
 ### The harness checks itself
 
-`bash scripts/gates.sh` is the single verdict, and two of its gates are about
-the harness rather than the game:
+Three of `gates.sh`'s gates are about the harness rather than the application:
 
-- **`scripts/mutate.mjs`** damages behaviour and requires the suite to notice —
-  the renderer ignoring its palette, `cellRect` transposed, the hidden-row
-  offset dropped, the chain multiplier frozen. A passing suite proves the tests
-  ran, not that they would catch anything. Mutating the *palette* is
-  deliberately not among them: the hex values are a design choice, which is
-  exactly why the first attempt to prove the colour tests bit did it that way
-  and passed. **A new test belongs here as a mutant** if a plausible bug in the
-  code it covers would not fail it.
 - **`evals/run.sh`** replays every failure `docs/LEDGER.md` claims is caught.
   Each case breaks something in a throwaway copy and asserts the named check
   fails, **having first required it to pass** — without that, a check already
   broken for some other reason would report a success it did not earn. The
   ledger's "verified by breaking" column was a hand-written claim until this
   existed. **A new check belongs here as a case, not only as a paragraph.**
+- **`scripts/ledger.sh`** asserts every check the ledger names still exists. A
+  deleted check means the failure can happen again, while the table goes on
+  saying it cannot.
 - **`scripts/agent-config-diff.sh`** reviews changes to the agent's own
   configuration, below.
-
-Exit **3 means a check did not run**, and `gates.sh` shows it as a note rather
-than a pass. The config gate returns it when there is no base ref to compare
-against: an ordinary situation, but one that used to print `ok`.
 
 ### Changes to the agent's own behaviour
 
@@ -152,6 +144,14 @@ file changed on every stop for reasons unrelated to the numbers; an append adds
 one line. `usage.md` stays rounded so the durable summary is not fifty rows of
 one session. `docs/LEDGER.md` rows 6, 12 and 13 carry that history.
 
+**Hook output is staged outside git until there is other work to commit it
+with** — `audit_log/.turns-pending.jsonl` and friends, folded in by
+`scripts/fold-logs.mjs` when `gates.sh` runs. A tracked file that changes every
+turn has no quiet state: commit it and CI runs and notifies, don't commit it and
+the "uncommitted changes" warning arrives instead. Either way the next turn is
+provoked. `paths-ignore` does not help — on `pull_request` it is evaluated
+against the whole PR diff, not the push.
+
 **The line returns to the conversation on every stop.** It was once narrowed to
 threshold crossings on a suspicion of a hook talking itself into a loop — never
 diagnosed, and it removed something that had been asked for. A rate breaker
@@ -172,27 +172,21 @@ nothing **is** enforced, by `doctor.sh`.
 
 ## Branch and PR workflow
 
-`puyo-puyo-web` is a long-lived integration branch and **the end of the line**.
-Work happens on disposable session branches (`claude/<slug>-<suffix>`) cut from
-it and merged back by pull request.
+The integration branch is named in `harness.config.json` (`git.baseBranch`), and
+`scripts/branch-state.sh` is the one place that reads it. Work happens on
+disposable session branches (`claude/<slug>-<suffix>`) cut from it and merged
+back by pull request.
 
-- **Open every PR with `base: puyo-puyo-web`.** GitHub resets the base dropdown
-  to the repository default on every new PR, so set it explicitly each time —
-  it is the easiest mistake to make in this layout.
-- **Nothing is ever merged into the default branch.** `puyo-puyo-web` is where
-  the work stops. Do not open a PR against the default branch, and do not treat
-  one as owed at the end of the project.
-- The default branch is `claude/getting-started-1olkod`, not `main` — a
-  leftover session branch. It matters only as the thing a PR must *not*
-  accidentally target.
-- When the base advances, bring it in with `git merge puyo-puyo-web`. Do **not**
-  rebase: session branches are already pushed, and rewriting their history
-  breaks any checkout that has them.
+- **Set the base explicitly on every PR.** GitHub resets the base dropdown to
+  the repository default, so a PR opened without setting it targets the wrong
+  branch. In this repository the default branch is a leftover session branch and
+  nothing is ever merged into it.
+- When the base advances, bring it in with `git merge`. Do **not** rebase:
+  session branches are already pushed, and rewriting their history breaks any
+  checkout that has them.
 - **Once your PR is merged, the branch is finished.** Re-cut it from the base
   rather than committing on top of the merged tip. `scripts/branch-state.sh`
   detects that state and prints the command; `doctor.sh` fails on it.
-- Because nothing leaves this branch, changes on it carry no consequence
-  anywhere else.
 
 ## Cloud session constraints
 
@@ -220,8 +214,9 @@ a check cannot hold:
   moment a prompt is worth paying for.
 - `block-secrets.sh` falls back to matching its raw payload when no JSON parser
   is available, **over-blocking rather than failing open**.
-- `typecheck.sh` exits 0 when `node_modules` is missing, so it can never block
-  work before install.
+- `session-start.sh` and `typecheck.sh` read `harness.config.json` and do
+  nothing when no application is configured. `typecheck.sh` also exits 0 when
+  `node_modules` is missing, so it can never block work before install.
 - `log-usage.sh` **exits 0 on every path**. A Stop hook that blocked could stop
   a session from ever finishing, which is worse than a missing row.
 - `record-subagent.sh` (SubagentStop) writes to `audit_log/subagents.jsonl`. It
@@ -230,11 +225,6 @@ a check cannot hold:
   unrecognised field could hold conversation text. Its known list is therefore a
   disclosure decision — only fields that cannot carry a message belong in it —
   and `doctor.sh` asserts both halves.
-
-  It has already earned its place. The published reference does not name
-  `agent_transcript_path`; two recorded payloads do, and it is the field that
-  would retire the glob in `audit_log/export.py`. `export.py` is not pointed at
-  it yet: knowing a field exists is not knowing what it holds.
 
 **Hook contract.** The event arrives as JSON on stdin. **Exit 2 blocks**, on the
 events that support blocking (`PreToolUse`, `UserPromptSubmit`, `Stop`), and the
@@ -272,9 +262,13 @@ there.
 
 ## CI (`.github/workflows/ci.yml`)
 
-One job on Node 22: `npm ci`, `npm run typecheck`, `npm test`, with `puyopuyo/`
-as the working directory.
+One job on Node 22. It reads `harness.config.json` through
+`node scripts/config.mjs --github-output`, so it holds no project-specific fact
+either — the workflow is the same file in every repository using this harness.
+The harness gates always run; the application steps are skipped when no
+`app.dir` is set, and a step writes into the run summary saying they **did not
+run** rather than leaving four grey ticks next to green ones.
 
-The `push` trigger names `puyo-puyo-web` explicitly, because a default-branch
-trigger would never fire here. The `pull_request` trigger is left unfiltered so
-every PR in the repository is checked.
+The `push` trigger names the integration branch explicitly, because a
+default-branch trigger would never fire here. The `pull_request` trigger is left
+unfiltered so every PR in the repository is checked.

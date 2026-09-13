@@ -13,6 +13,7 @@
 #         --quick skips the gates that need the network or the base branch.
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
+. "$(dirname "$0")/app-config.sh"
 
 quick=0
 [ "${1:-}" = "--quick" ] && quick=1
@@ -41,8 +42,21 @@ run() {
 node "$(dirname "$0")/fold-logs.mjs" >/dev/null 2>&1 || true
 
 echo "gates"
-run "typecheck"           bash -c 'cd puyopuyo && npm run typecheck'
-run "tests"               bash -c 'cd puyopuyo && npm test'
+# The application gates need an application. When harness.config.json has no
+# app.dir they exit 3 -- did not run -- and render as a note. A template that
+# printed ok for a check it never performed would teach the opposite of the one
+# rule this repository has.
+app_gate() {
+  local label="$1" cmd="$2"
+  if [ -z "$APP_DIR" ]; then
+    printf '  %snote%s  %s %sno app.dir in harness.config.json%s\n' \
+      "$dim" "$off" "$label" "$dim" "$off"
+    return
+  fi
+  run "$label" bash -c "cd \"$APP_DIR\" && $cmd"
+}
+app_gate "typecheck"      "$APP_TYPECHECK"
+app_gate "tests"          "$APP_TEST"
 run "clock boundary"        node scripts/clock-boundary.mjs
 [ $quick -eq 1 ] || \
 run "mutation"            node scripts/mutate.mjs

@@ -1,0 +1,19 @@
+{
+  "$comment": [
+    "A fixture, not a project. evals/cases/clock-escapes-main.sh points the",
+    "clock boundary at it via $HARNESS_CONFIG, breaks it, and asserts the check",
+    "notices. Without this the template configures no application, so the check",
+    "exits 3 everywhere and the ledger row claiming it is caught is untestable."
+  ],
+  "app": { "dir": null },
+  "clockBoundary": {
+    "enabled": true,
+    "srcDir": "evals/fixtures/clock/src",
+    "allowedFile": "main.ts",
+    "forbidden": [
+      "Date.now", "performance.now", "setTimeout",
+      "setInterval", "requestAnimationFrame", "Math.random"
+    ]
+  },
+  "mutants": []
+}

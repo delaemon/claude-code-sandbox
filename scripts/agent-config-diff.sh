@@ -29,7 +29,8 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 0
 
-base="${1:-${DOCTOR_BASE:-puyo-puyo-web}}"
+. "$(dirname "$0")/app-config.sh"
+base="${1:-${DOCTOR_BASE:-${BASE_BRANCH:-main}}}"
 base_ref=""
 for candidate in "origin/$base" "$base"; do
   git rev-parse --verify --quiet "$candidate" >/dev/null 2>&1 && { base_ref="$candidate"; break; }

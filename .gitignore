@@ -1,10 +1,10 @@
-# Node (puyopuyo/)
+# Node (the application, wherever harness.config.json points)
 node_modules/
 dist/
 *.tsbuildinfo
 .vite/
 
-# Python (audit_log/)
+# Python (audit_log/ only)
 __pycache__/
 *.pyc
 .pytest_cache/

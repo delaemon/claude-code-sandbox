@@ -2,6 +2,13 @@
 
 Every failure this harness has had, and the executable check that now catches it.
 
+**Inherited history.** These failures happened in the project this harness was
+extracted from. They are kept, rather than reset with the rest of the logs,
+because the checks they produced are still here — and a check with no story
+attached is the first one someone deletes as unexplained. The shapes recur, too:
+a guard that cannot run, a test that passes vacuously, a probe that pollutes
+what it measures. Add your own rows below; do not renumber these.
+
 A row is only closed when a **check exists and has been seen to fail** on the
 failure it names — verified by reproducing the failure deliberately, in a
 throwaway clone, never in the working tree. A row with no check is not a lesson

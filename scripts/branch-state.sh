@@ -22,7 +22,11 @@ set -uo pipefail
 cd "$(dirname "$0")/.." || exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || { echo "not a git repository"; exit 0; }
 
-base="${DOCTOR_BASE:-puyo-puyo-web}"
+# The integration branch is a project fact, so it comes from
+# harness.config.json rather than from a default written into this script --
+# a hardcoded branch name is a line the next project has to find and edit.
+. "$(dirname "$0")/app-config.sh"
+base="${DOCTOR_BASE:-${BASE_BRANCH:-main}}"
 
 # The local ref goes stale the moment someone merges, which is exactly when this
 # check matters, so callers that can afford the round trip pass --fetch.

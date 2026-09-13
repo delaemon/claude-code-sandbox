@@ -1,45 +1,38 @@
 #!/usr/bin/env bash
-# SessionStart hook: make the repo usable in a fresh (e.g. Claude Code on the
-# web) container, so the first thing a session does is not an install.
+# SessionStart: make a fresh checkout usable immediately.
 #
-# Nothing here is deferred. puyopuyo's three dev dependencies install in about
-# two seconds, which is cheap enough to pay on every fresh container rather than
-# leaving a session to discover it needs them.
+# Installs the application's dependencies, if an application is configured.
+# Nothing here is deferred: a session that has to wait for an install before it
+# can run the tests is a session that skips running them.
+#
+# Also reports the branch state, because committing on a branch whose pull
+# request has already merged is a mistake this harness has actually made, and
+# scripts/branch-state.sh is the thing that notices.
 set -uo pipefail
-cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}"
+cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}" 2>/dev/null || exit 0
+. scripts/app-config.sh 2>/dev/null || true
 
-if [ -d puyopuyo/node_modules ]; then
-  echo "puyopuyo: deps already present"
-elif [ -f puyopuyo/package-lock.json ]; then
-  echo "puyopuyo: installing deps ..."
-  if (cd puyopuyo && npm ci --no-audit --no-fund >/dev/null 2>&1); then
-    echo "puyopuyo: ok"
+if [ -z "$APP_DIR" ]; then
+  echo "harness: no app.dir in harness.config.json — application gates will not run"
+elif [ -d "$APP_DIR/node_modules" ]; then
+  echo "$APP_DIR: deps already present"
+elif [ -n "$APP_INSTALL" ]; then
+  echo "$APP_DIR: installing deps ..."
+  if (cd "$APP_DIR" && eval "$APP_INSTALL" --no-audit --no-fund >/dev/null 2>&1) \
+     || (cd "$APP_DIR" && eval "$APP_INSTALL" >/dev/null 2>&1); then
+    echo "$APP_DIR: ok"
   else
-    echo "puyopuyo: FAILED — run 'cd puyopuyo && npm ci' by hand"
+    echo "$APP_DIR: FAILED — run '(cd $APP_DIR && $APP_INSTALL)' by hand"
   fi
 fi
 
-# audit_log/test_export.py is the only Python left here. Python is optional in
-# this repository — nothing else needs it and the hooks deliberately do not — so
-# a host without it is not a problem worth shouting about, and this stays quiet
-# rather than failing the session start.
-if command -v python3 >/dev/null 2>&1; then
-  if ! python3 -c 'import pytest' 2>/dev/null; then
-    python3 -m pip install --quiet --disable-pip-version-check pytest 2>/dev/null \
-      && echo "audit_log: pytest ok" \
-      || echo "audit_log: no pytest — 'pip install pytest' to run its tests"
-  fi
-else
-  echo "audit_log: no python3 — its tests are unavailable here; everything else works"
+if command -v python3 >/dev/null 2>&1 && python3 -c 'import pytest' 2>/dev/null; then
+  echo "audit_log: pytest available"
 fi
 
-# Where this branch sits relative to the integration branch, checked before any
-# work starts rather than discovered at PR time. This is the gap that let a
-# commit land on a branch whose PR had already merged: nothing looked wrong, and
-# nothing said so. Silent when the branch is fine, so a normal session start
-# stays quiet.
 state=$(bash scripts/branch-state.sh --fetch 2>/dev/null)
 case $? in
   1) echo "branch: $state" ;;
   2) echo "branch: STOP — $state" ;;
 esac
+exit 0

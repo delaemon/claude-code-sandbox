@@ -1,11 +1,11 @@
 name: CI
 
-# push is pinned to puyo-puyo-web: the repository default branch is a leftover
-# session branch, so a default-branch trigger would never fire for this project.
-# pull_request is left unfiltered because it is simpler and checks every PR in
-# the repository. Nothing is ever merged into the default branch here.
-# push is pinned to puyo-puyo-web: the repository default branch is a leftover
-# session branch, so a default-branch trigger would never fire for this project.
+# Everything project-specific in this workflow comes from harness.config.json,
+# except the branch below: GitHub evaluates `on:` before any step runs, so a
+# trigger cannot read a config file. It is the one line to change alongside
+# `git.baseBranch` -- here it is pinned to the integration branch because this
+# repository's default branch is a leftover session branch and a default-branch
+# trigger would never fire.
 # pull_request is left unfiltered because it is simpler and checks every PR.
 #
 # `paths-ignore` was tried here to stop log-only commits running CI, and does
@@ -13,7 +13,7 @@ name: CI
 # because the filter is evaluated against the pull request's whole diff rather
 # than the push that updated it. The loop it was meant to cut is cut at the
 # source instead -- the per-turn log is staged outside git until there is other
-# work to commit it with. See scripts/fold-turns.mjs.
+# work to commit it with. See scripts/fold-logs.mjs.
 on:
   pull_request:
   push:
@@ -21,10 +21,6 @@ on:
 
 permissions:
   contents: read
-
-defaults:
-  run:
-    working-directory: puyopuyo
 
 jobs:
   check:
@@ -39,11 +35,41 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: puyopuyo/package-lock.json
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
+
+      # Everything project-specific comes from harness.config.json, so this
+      # workflow is the same file in every repository using the harness. The
+      # harness checks below always run; the application checks run only once a
+      # project is wired up.
+      - name: Harness config
+        id: cfg
+        run: node scripts/config.mjs --github-output >> "$GITHUB_OUTPUT"
+
+      # An application gate that cannot run must not look like one that passed.
+      # With no app configured the steps below are skipped, and a skipped step
+      # is a grey tick next to five green ones -- so say it in the summary.
+      - name: No application configured
+        if: steps.cfg.outputs.app_dir == ''
+        run: |
+          {
+            echo "### Application checks did not run"
+            echo
+            echo 'harness.config.json has no `app.dir`, so install, typecheck,'
+            echo 'tests, the clock boundary and mutation testing were skipped.'
+            echo 'They did not pass. Set `app.dir` to turn them on.'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Install
+        if: steps.cfg.outputs.app_dir != ''
+        working-directory: ${{ steps.cfg.outputs.app_dir }}
+        run: ${{ steps.cfg.outputs.app_install }}
+      - name: Typecheck
+        if: steps.cfg.outputs.app_dir != ''
+        working-directory: ${{ steps.cfg.outputs.app_dir }}
+        run: ${{ steps.cfg.outputs.app_typecheck }}
+      - name: Test
+        if: steps.cfg.outputs.app_dir != ''
+        working-directory: ${{ steps.cfg.outputs.app_dir }}
+        run: ${{ steps.cfg.outputs.app_test }}
 
       # The repository is worked on from a cloud session and from a dev
       # container, and the flow is only identical if both environments really do
@@ -52,42 +78,39 @@ jobs:
       # nothing in one environment is the failure this is here to catch. CI is a
       # third environment, so it is a fair check on the assumptions themselves.
       - name: Environment contract
-        working-directory: .
         run: bash scripts/doctor.sh
 
-      # The ledger pairs every failure this harness has had with the check that
-      # now catches it. It is only worth having if the checks are real, so this
-      # asserts that each one still exists — a removed check means the failure
-      # can happen again, and the table would otherwise still claim it cannot.
-      # CLAUDE.md called a grep "the check" keeping clocks and randomness out of
-      # everything but main.ts. Nothing ran it. This does.
       # doctor.sh must run the same checks here as it does on a workstation.
       # Three of its cases took their probe from $HOME/.claude/projects, which
       # this runner does not have, so they were skipped -- printing neither ok
       # nor bad, and leaving doctor.sh green with those guards deleted.
       - name: Same everywhere
-        working-directory: .
         run: bash scripts/same-everywhere.sh
 
+      # CLAUDE.md once called a grep "the check" keeping clocks and randomness
+      # out of everything but the entry point. Nothing ran it. This does, when a
+      # project asks for it.
       - name: Clock boundary
-        working-directory: .
+        if: steps.cfg.outputs.clock_boundary == 'on'
         run: node scripts/clock-boundary.mjs
+
+      # A passing suite proves the tests ran, not that they would catch
+      # anything. Each mutant damages behaviour and must be noticed.
+      - name: Mutation
+        if: steps.cfg.outputs.mutants != '0'
+        run: node scripts/mutate.mjs
 
       # The ledger says each failure is caught. These replay it: every case
       # breaks something in a throwaway copy and asserts the named check fails,
       # having first required it to pass.
-      # A passing suite proves the tests ran, not that they would catch
-      # anything. Each mutant damages behaviour and must be noticed.
-      - name: Mutation
-        working-directory: .
-        run: node scripts/mutate.mjs
-
       - name: Harness evals
-        working-directory: .
         run: bash evals/run.sh
 
+      # The ledger pairs every failure this harness has had with the check that
+      # now catches it. It is only worth having if the checks are real, so this
+      # asserts that each one still exists — a removed check means the failure
+      # can happen again, and the table would otherwise still claim it cannot.
       - name: Failure ledger
-        working-directory: .
         run: bash scripts/ledger.sh
 
       # What this change does to the agent's own behaviour, written to the run
@@ -97,7 +120,6 @@ jobs:
       # fetch.
       - name: Agent behaviour review
         if: github.event_name == 'pull_request'
-        working-directory: .
         run: |
           bash scripts/agent-config-diff.sh "${{ github.base_ref }}" | tee -a "$GITHUB_STEP_SUMMARY"
           exit "${PIPESTATUS[0]}"

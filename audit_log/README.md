@@ -3,6 +3,10 @@
 Full transcripts of every subagent run, exported from the session VM into the
 repository so they outlive it.
 
+`runs/` is empty in the template: the transcripts a previous project produced
+are its own, and `export.py` regenerates this directory from whatever the
+current machine holds.
+
 ```bash
 python3 audit_log/export.py            # export + regenerate INDEX.md
 python3 audit_log/export.py --dry-run  # report without writing
@@ -41,7 +45,7 @@ have opposite requirements and cannot be the same artifact:
 | Content | why | what |
 | Completeness | deliberately partial | useless if partial |
 | Pruning | **required** — stale entries send the next agent down a path that is already closed | **forbidden** — a log you can edit proves nothing |
-| Size | 84 KB | 2.6 MB |
+| Size | kilobytes | megabytes |
 
 A worklog entry that has served its purpose gets deleted. Deleting from an
 audit log destroys the only thing it was for.
@@ -52,7 +56,7 @@ what it decided is in git history and the PR descriptions instead.
 
 ## Redaction
 
-This repository is public, so every line passes through a redactor before it is
+These archives are often public, so every line passes through a redactor before it is
 written. Known credential shapes — Anthropic, OpenAI, GitHub, Slack, AWS and
 Google keys, bearer tokens, JWTs, private key headers, and `NAME=value` for
 names implying a secret — are replaced with `[REDACTED:<kind>:<digest>]`.
@@ -82,9 +86,9 @@ is not undone by deleting it. Do not rely on this to make careless commands safe
 
 ## Size
 
-2.6 MB across six runs, and git keeps every version forever. The export is
+Transcripts are large and git keeps every version forever. The export is
 idempotent — a finished agent's transcript never changes, so re-running it adds
 new runs without rewriting old ones and the archive grows linearly rather than
-quadratically. It is still worth deciding, before this repository gets large,
+quadratically. It is still worth deciding, before an archive gets large,
 whether full transcripts are what you want in git or whether the index alone
 would do.

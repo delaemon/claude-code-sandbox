@@ -1,0 +1,35 @@
+{
+  "$comment": [
+    "What this harness is pointed at. Everything project-specific lives here;",
+    "the scripts read it and nothing else knows your directory layout.",
+    "",
+    "When `app.dir` is null the gates that need an application report exit 3",
+    "-- did not run -- rather than passing. An unconfigured gate that prints ok",
+    "is the failure this whole repository is built to refuse, and a template",
+    "that shipped one would teach the opposite of its own lesson."
+  ],
+
+  "git": {
+    "baseBranch": "puyo-puyo-web"
+  },
+
+  "app": {
+    "dir": null,
+    "install": "npm ci",
+    "typecheck": "npm run typecheck",
+    "test": "npm test",
+    "testReportsFailures": "Tests\\s+\\d+\\s+failed"
+  },
+
+  "clockBoundary": {
+    "enabled": false,
+    "srcDir": null,
+    "allowedFile": "main.ts",
+    "forbidden": [
+      "Date.now", "performance.now", "setTimeout",
+      "setInterval", "requestAnimationFrame", "Math.random"
+    ]
+  },
+
+  "mutants": []
+}

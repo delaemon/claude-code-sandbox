@@ -22,7 +22,7 @@ freely to avoid needing a second prompt.
    never wrong has told you nothing. Break the thing deliberately — in a
    throwaway clone, never in the working tree — watch the check fail, restore.
 5. **Commit and push** to the session branch. Open a PR with
-   `base: puyo-puyo-web`, then watch it and drive it to green.
+   `base:` the integration branch named in `harness.config.json` (`git.baseBranch`), then watch it and drive it to green.
 6. **Report in the terminal**: what changed, what you verified and how, what you
    assumed, what you deliberately left. Lead with anything that went wrong.
 

@@ -3,7 +3,8 @@
 #
 # The repository is worked on from two places — an Anthropic-hosted cloud
 # session, and a dev container on a developer's machine — and the flow is meant
-# to be identical from either: work, open a PR against puyo-puyo-web, merge.
+# to be identical from either: work, open a PR against the integration branch,
+# merge.
 # "Identical" is a claim, and this is what makes it a testable one.
 #
 # It checks the toolchain versions the two must share, and then runs the hooks
@@ -20,6 +21,7 @@ set -uo pipefail
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo"
+. "$repo/scripts/app-config.sh"
 
 pass=0
 fail=0
@@ -73,10 +75,31 @@ fi
 
 echo
 echo "project"
-if [ -d puyopuyo/node_modules ]; then
-  ok "puyopuyo dependencies installed"
+# CI's first step is `node scripts/config.mjs --github-output`, and every later
+# step reads what it emits. If it stops emitting a key, the steps that gate on
+# that key are skipped -- and a skipped step is a grey tick, not a red one, so
+# the whole application half of CI would go quiet without failing.
+cfg_out=$(node scripts/config.mjs --github-output 2>&1)
+if [ $? -ne 0 ]; then
+  bad "config.mjs --github-output failed: $cfg_out"
 else
-  note "puyopuyo/node_modules missing — run 'cd puyopuyo && npm ci'"
+  missing=""
+  for key in app_dir app_install app_typecheck app_test clock_boundary mutants; do
+    printf '%s\n' "$cfg_out" | grep -q "^$key=" || missing="$missing $key"
+  done
+  if [ -n "$missing" ]; then
+    bad "config.mjs --github-output emits no$missing — CI steps reading them would be skipped, not failed"
+  else
+    ok "config.mjs --github-output emits every key CI gates on"
+  fi
+fi
+
+if [ -z "$APP_DIR" ]; then
+  note "no app.dir in harness.config.json — the application gates will not run"
+elif [ -d "$APP_DIR/node_modules" ]; then
+  ok "$APP_DIR dependencies installed"
+else
+  note "$APP_DIR/node_modules missing — run '(cd $APP_DIR && $APP_INSTALL)'"
 fi
 
 echo
@@ -134,7 +157,7 @@ check_hook "block-secrets refuses .env"      block-secrets \
 check_hook "block-secrets refuses *.key"     block-secrets \
   '{"tool_name":"Write","tool_input":{"file_path":"'"$repo"'/x.key"}}' 2
 check_hook "block-secrets allows source"     block-secrets \
-  '{"tool_name":"Write","tool_input":{"file_path":"'"$repo"'/puyopuyo/src/main.ts"}}' 0
+  '{"tool_name":"Write","tool_input":{"file_path":"'"$repo"'/README.md"}}' 0
 check_hook "typecheck ignores non-TypeScript" typecheck \
   '{"tool_name":"Edit","tool_input":{"file_path":"'"$repo"'/README.md"}}' 0
 

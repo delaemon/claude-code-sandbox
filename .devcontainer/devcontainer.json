@@ -1,5 +1,5 @@
 {
-  "name": "puyo-puyo-web",
+  "name": "agentic-ai-harness",
 
   // Node 22 to match both the cloud session (v22.22.2) and CI. A different
   // major here would mean the same commit can pass on one machine and fail on
@@ -22,7 +22,7 @@
     // Keep the Claude Code login and session history across rebuilds. Without
     // both this mount and CLAUDE_CONFIG_DIR below, `.claude.json` lands outside
     // the volume and every rebuild signs you out.
-    "source=puyo-puyo-web-claude-${devcontainerId},target=/home/node/.claude,type=volume"
+    "source=agentic-ai-harness-claude-${devcontainerId},target=/home/node/.claude,type=volume"
   ],
 
   "containerEnv": {
