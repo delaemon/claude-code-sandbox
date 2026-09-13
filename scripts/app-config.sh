@@ -4,7 +4,16 @@
 # Sourced by the hooks and by gates.sh. Sets APP_DIR (empty when unconfigured),
 # APP_INSTALL, APP_TYPECHECK, APP_TEST and BASE_BRANCH. Callers decide what
 # "unconfigured" means for them -- but it is never "passed".
-_hc=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/harness.config.json
+# $HARNESS_CONFIG points the whole harness at a different config, exactly as it
+# does for scripts/config.mjs. It existed for node callers only, so a check
+# reached from shell could not be exercised against a fixture at all -- and a
+# check nobody can exercise is the shape of failure this repository is about.
+_hcroot=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+case "${HARNESS_CONFIG:-}" in
+  "")  _hc=$_hcroot/harness.config.json ;;
+  /*)  _hc=$HARNESS_CONFIG ;;
+  *)   _hc=$_hcroot/$HARNESS_CONFIG ;;
+esac
 if [ -r "$_hc" ] && command -v node >/dev/null 2>&1; then
   eval "$(node -e '
     const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));

@@ -60,6 +60,10 @@ happening again.
 | 35 | `ledger.sh` looked for assertion labels in `doctor.sh` alone, so a real, running check written anywhere else read as a row naming something that does not exist — the table calling its own working guards fiction | `scripts/ledger.sh` | yes |
 | 36 | Widening that search made `ledger.sh` credit itself: its own comment quotes a real label to explain a past mistake, so a check renamed away in `doctor.sh` still read as present | `scripts/ledger.sh` | yes |
 | 37 | `pipefail` plus `grep -q` reported two existing checks as missing: grep exits on its first match, `sed` is killed by SIGPIPE, and the pipeline takes the dead writer's status — so only labels matching early in a long file were affected, and the rest stayed green | `scripts/ledger.sh` | yes |
+| 38 | An application command's own exit code was read in the harness's vocabulary. A `test` command exiting 3 rendered as `note tests did not run` and `gates.sh` exited 0 — the suite died and the gates passed | `an app command exiting 3 is a failed gate, not a did-not-run` | yes |
+| 39 | `$HARNESS_CONFIG`, the hook that lets a check be exercised against a fixture, was honoured by the node callers and ignored by the shell ones — so any check reached through `app-config.sh` could not be tested at all | `scripts/app-config.sh` | yes |
+| 40 | Adding a hook put an untracked file in `git status` on every turn — `.gitignore` named the three paths the hooks wrote, and the fourth was not among them. Row 25's shape, back within an hour of the row being read | `which git ignores` | yes |
+| 41 | A `doctor.sh` probe ran a hook without redirecting stdin; the hook waited for its event and blocked for ever. No output, no error, and a check that hangs never reports at all | `no hook answered --where` | yes |
 
 ## Closed since, and how
 

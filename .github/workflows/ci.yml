@@ -156,6 +156,21 @@ jobs:
       - name: Failure ledger
         run: bash scripts/ledger.sh
 
+      # When something failed, say which one to fix first, on the checks page.
+      # A CI log is a wall of output read on a phone; the work order is the same
+      # results ordered by what causes what, with the evidence pulled out. It
+      # runs on failure only, and adds nothing to a green run.
+      - name: Work order
+        if: failure()
+        run: |
+          {
+            echo "### What to fix first"
+            echo
+            echo '```'
+            node scripts/autopilot.mjs --quick || true
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
       # What this change does to the agent's own behaviour, written to the run
       # summary so it is on the checks page rather than buried in a log. It
       # fails only when a guard is weaker than on the base — adding one never

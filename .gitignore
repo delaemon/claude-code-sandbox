@@ -11,7 +11,13 @@ __pycache__/
 
 .env
 
-# Staged hook output, folded into the tracked logs by scripts/fold-logs.mjs
-audit_log/.turns-pending.jsonl
-audit_log/.subagents-pending.jsonl
-audit_log/.usage-pending.md
+# Everything a hook writes for itself. A dotfile under audit_log/ is scratch:
+# staged log lines waiting for scripts/fold-logs.mjs, and the gate hook's own
+# memory of what it last said.
+#
+# A glob rather than the three names that used to be here. Adding a hook that
+# wrote a fourth file put an untracked file in `git status` on every turn --
+# which is ledger row 25's shape exactly, and it came back within an hour of
+# the row being read. doctor.sh now asks each hook where it writes and requires
+# git to be ignoring it.
+audit_log/.*

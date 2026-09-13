@@ -349,6 +349,87 @@ else
   bad "a doctor probe wrote into audit_log/turns.jsonl"
 fi
 
+# Every path a hook writes for itself must be one git ignores.
+#
+# A hook that leaves an untracked or modified file behind on every turn has no
+# quiet state: commit it and CI runs and notifies, do not and the "uncommitted
+# changes" warning arrives. Either way the next turn is provoked, which is
+# ledger row 25 -- a loop that sustained itself for an hour at about a commit a
+# minute with no input.
+#
+# The hooks are ASKED where they write, rather than the answer being kept here.
+# A hand-maintained list of hook output paths went stale the moment a hook was
+# added: .gitignore named three files, the fourth was not among them, and an
+# untracked file appeared in git status on every turn within an hour of that
+# row being read.
+answered=0
+for h in .claude/hooks/*.mjs; do
+  [ -e "$h" ] || break
+  # stdin from /dev/null, and a bound on the wait. A hook reads its event from
+  # stdin, so a probe that lets one inherit doctor.sh's stdin simply blocks --
+  # for ever, with no output and no error. That is not hypothetical: it hung
+  # this script on its first run, and a check that hangs never reports, which
+  # is the same family of failure as one that cannot look.
+  where=$(CLAUDE_PROJECT_DIR="$repo" timeout 10 node "$h" --where </dev/null 2>/dev/null)
+  [ -n "$where" ] || continue
+  answered=$((answered + 1))
+  if git -C "$repo" check-ignore -q "$where" 2>/dev/null; then
+    ok "$(basename "$h") writes $where, which git ignores"
+  else
+    bad "$(basename "$h") writes $where and git does not ignore it — the tree dirties every turn"
+  fi
+done
+
+# A positive, before the absence of a complaint means anything. Every hook
+# answering nothing looks exactly like every hook being well behaved -- and it
+# is what a probe that blocks on stdin produces, since `timeout` then leaves
+# every answer empty and the loop above reports nothing at all.
+if [ "$answered" -eq 0 ]; then
+  bad "no hook answered --where — the probe is inert and proves nothing about any of them"
+else
+  ok "$answered hook(s) answered --where"
+fi
+
+# The gate hook must never block a stop, whatever it finds. A Stop hook that
+# exits non-zero can stop a session from ever finishing, which is worse than
+# any verdict it could have delivered.
+gs_state=$(mktemp -d)
+gs_out=$(printf '{"session_id":"doctor-probe"}' \
+  | GATE_STOP_STATE="$gs_state/s.json" CLAUDE_PROJECT_DIR="$repo" \
+    bash "$repo/.claude/hooks/gate-stop.sh" 2>/dev/null)
+gs_code=$?
+if [ "$gs_code" -ne 0 ]; then
+  bad "gate-stop exited $gs_code — a Stop hook that blocks can stop a session finishing"
+elif printf '%s' "$gs_out" | grep -q '"hookEventName": *"Stop"'; then
+  ok "gate-stop returns its verdict as Stop additionalContext"
+elif [ -z "$gs_out" ]; then
+  note "gate-stop stayed silent — nothing has changed since its last verdict"
+else
+  bad "gate-stop exited 0 but said nothing a session can read"
+fi
+rm -rf "$gs_state"
+
+# 0/1/2/3 is a contract between the scripts here. An application's build tool
+# knows nothing about it -- and a `test` command exiting 3 was rendered as
+# "did not run", a note rather than a failure, with gates.sh then exiting 0.
+# The suite died and the gates passed, which is this repository's one rule
+# broken by the one path that runs code it did not write.
+#
+# Asserted against a fixture, on the gate's own JSON, so that some *other*
+# gate failing for an unrelated reason cannot make this pass: the claim is
+# specifically that `tests` is reported as a failure.
+ec_json=$(HARNESS_CONFIG=evals/fixtures/exit-codes/harness.config.json \
+  bash "$repo/scripts/gates.sh" --fast --json 2>/dev/null)
+ec_status=$(printf '%s' "$ec_json" | grep -A1 '"gate": "tests"' | grep -o '"status": "[a-z-]*"' | head -1)
+case "$ec_status" in
+  *'"fail"'*)
+    ok "an app command exiting 3 is a failed gate, not a did-not-run" ;;
+  "")
+    bad "the exit-code fixture produced no verdict for the tests gate — the probe is inert" ;;
+  *)
+    bad "an app command exiting 3 reported as $ec_status — a dead suite reads as a check that never ran" ;;
+esac
+
 echo
 echo "agents and commands"
 for f in .claude/agents/*.md; do

@@ -1,0 +1,23 @@
+{
+  "$comment": [
+    "A fixture, not an application. It exists so the rule that an application",
+    "command's exit code is NOT the harness's exit code can be exercised.",
+    "",
+    "`test` exits 3. In the harness's own vocabulary 3 means did-not-run, and",
+    "gates.sh rendered this as `note tests did not run` and then exited 0 --",
+    "the suite blowing up read as a check that was never configured. 0/1/2/3",
+    "is a contract between the scripts in this repository; a third-party tool",
+    "shares only `0 means success`, and `tsc` really does exit 2 for type",
+    "errors found."
+  ],
+  "git": { "baseBranch": "agentic-ai-harness-v1" },
+  "app": {
+    "dir": "evals/fixtures/exit-codes",
+    "install": "true",
+    "typecheck": "true",
+    "test": "echo 'the suite could not start' >&2; exit 3",
+    "testReportsFailures": "this regex matches nothing"
+  },
+  "clockBoundary": { "enabled": false, "srcDir": null },
+  "mutants": []
+}
