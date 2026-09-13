@@ -51,6 +51,9 @@ happening again.
 | 26 | Only one of the two hooks that write logs was staged, so `subagents.jsonl` kept dirtying the tree by itself — one writer fixed reads as fixed until the other fires | `hooks write only staged logs` | yes |
 | 27 | Staging the logs silently disabled the check that the hook records nothing it cannot measure: it compared tracked files the hook had stopped writing, so it passed with the guard deleted | `log-usage records nothing` | yes |
 | 28 | Three `doctor.sh` cases took their probe from `$HOME/.claude/projects`, which CI does not have, so they were skipped there — printing neither ok nor bad, leaving doctor green with the guards they cover deleted | `scripts/same-everywhere.sh` | yes |
+| 29 | `git.baseBranch` and `ci.yml`'s push trigger both named `puyo-puyo-web`, a session branch from a finished project — so CI would never have run on the integration branch, and a trigger that fires on nothing does not error | `scripts/ci-trigger.mjs` | yes |
+| 30 | The eval runner reported a check exiting 3 as "already failing before the break", blaming a gate that was correctly saying it had no base ref to look at — and gave the case no way to arrange one | `scripts/eval-runner.sh` | yes |
+| 31 | A break that stops a check from running counted as a break the check caught: the runner accepted any non-zero exit, and exit 3 is what a guard that has been switched off reports | `scripts/eval-runner.sh` | yes |
 
 ## Closed since, and how
 

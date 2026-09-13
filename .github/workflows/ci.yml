@@ -17,7 +17,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [puyo-puyo-web]
+    branches: [agentic-ai-harness-v1]
 
 permissions:
   contents: read
@@ -105,6 +105,20 @@ jobs:
       # having first required it to pass.
       - name: Harness evals
         run: bash evals/run.sh
+
+      # evals/run.sh is what makes every other check's ledger row honest, and
+      # nothing replayed it -- untested code deciding whether tested code can be
+      # trusted. It cannot be an eval case: the runner refuses a CHECK that
+      # re-enters it.
+      - name: Eval runner self-test
+        run: bash scripts/eval-runner.sh
+
+      # `on:` is evaluated before any step runs, so the push trigger is the one
+      # line that cannot read harness.config.json. Keeping it in step with
+      # git.baseBranch was a comment until this check existed, and both had
+      # drifted to a session branch from a finished project.
+      - name: CI trigger
+        run: node scripts/ci-trigger.mjs
 
       # The ledger pairs every failure this harness has had with the check that
       # now catches it. It is only worth having if the checks are real, so this

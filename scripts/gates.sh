@@ -65,6 +65,9 @@ run "audit log tests"     bash -c 'command -v python3 >/dev/null && python3 -m p
 run "environment"         bash scripts/doctor.sh
 run "same everywhere"     bash scripts/same-everywhere.sh
 run "failure ledger"      bash scripts/ledger.sh
+run "ci trigger"          node scripts/ci-trigger.mjs
+[ $quick -eq 1 ] || \
+run "eval runner"         bash scripts/eval-runner.sh
 [ $quick -eq 1 ] || \
 run "agent behaviour"     bash scripts/agent-config-diff.sh
 [ $quick -eq 1 ] || \
