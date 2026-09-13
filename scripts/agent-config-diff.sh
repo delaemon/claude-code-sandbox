@@ -63,7 +63,13 @@ range="$base_ref...HEAD"
 # because it is the list of which files this whole check is about, and this
 # check omitting it is exactly the blind spot it exists to prevent — it did,
 # on the pull request that introduced it.
-watched=('.claude/**' 'CLAUDE.md' '.github/workflows/**' 'scripts/**'
+# Every engine's configuration, not one engine's. The list named `.claude/**`
+# and `CLAUDE.md` back when Claude Code was the only engine wired up; adding
+# Codex and Gemini CLI without widening it would have left two of the three
+# able to change what an agent may do with no review line at all -- which is
+# the same blind spot as row 5, where this check did not watch CODEOWNERS.
+watched=('.claude/**' 'CLAUDE.md' 'AGENTS.md' 'GEMINI.md' '.gemini/**' '.codex/**'
+         'githooks/**' '.github/workflows/**' 'scripts/**'
          '.devcontainer/**' 'docs/worklog/CONTRACT.md' '.github/CODEOWNERS')
 if ! changed=$(git diff --name-only "$range" -- "${watched[@]}"); then
   echo "\`git diff $range\` failed; refusing to report this as no change." >&2
@@ -77,10 +83,16 @@ fi
 
 explain() {
   case "$1" in
-    .claude/settings.json)    echo "permissions, hook wiring, enabled plugins" ;;
-    .claude/hooks/*)          echo "code the harness runs automatically" ;;
-    .claude/*)                echo "agent configuration" ;;
-    CLAUDE.md)                echo "what the next session believes about this repo" ;;
+    .claude/settings.json)    echo "permissions, hook wiring, enabled plugins (Claude Code)" ;;
+    .claude/hooks/*)          echo "code the harness runs automatically (Claude Code)" ;;
+    .claude/*)                echo "agent configuration (Claude Code)" ;;
+    AGENTS.md)                echo "**the contract every engine reads**" ;;
+    CLAUDE.md)                echo "the Claude Code adapter, and its import of the contract" ;;
+    GEMINI.md)                echo "the Gemini CLI adapter" ;;
+    .gemini/settings.json)    echo "which files Gemini CLI loads as context" ;;
+    .gemini/*)                echo "agent configuration (Gemini CLI)" ;;
+    .codex/*)                 echo "agent configuration (Codex)" ;;
+    githooks/*)               echo "the engine-neutral automatic gate" ;;
     docs/worklog/CONTRACT.md) echo "what parallel agents are bound to" ;;
     .github/workflows/*)      echo "what CI checks" ;;
     .github/CODEOWNERS)       echo "who owns the files that decide agent behaviour" ;;
@@ -162,6 +174,23 @@ if [ -x .claude/hooks/block-secrets.sh ]; then
       | bash .claude/hooks/block-secrets.sh >/dev/null 2>&1 || code=$?
     [ "$code" -eq 2 ] || add "the secret guard no longer refuses \`$name\` (exit $code)"
   done
+fi
+
+# --- the shared contract, asked whether every engine still reaches it.
+#
+# Behaviour, not diff lines, for the same reason as everything else here: an
+# adapter can be rewritten wholesale and still be wired correctly, and a
+# one-line deletion can unwire it. scripts/agent-contract.mjs answers the
+# question by reading what each engine would read.
+if [ -f scripts/agent-contract.mjs ] && command -v node >/dev/null 2>&1; then
+  contract_out=$(node scripts/agent-contract.mjs 2>&1); contract_code=$?
+  if [ "$contract_code" -eq 1 ]; then
+    while IFS= read -r line; do
+      case "$line" in
+        "  - "*) add "engines disagree about the contract:${line#  -}" ;;
+      esac
+    done <<< "$contract_out"
+  fi
 fi
 
 # --- doctor.sh losing hook assertions it used to make.

@@ -387,6 +387,24 @@ else
   bad "a doctor probe wrote into audit_log/turns.jsonl"
 fi
 
+# The engine-neutral automatic gate.
+#
+# Only Claude Code can run something on every turn. Under Codex and Gemini CLI
+# the gates run when somebody remembers -- which is the step that gets skipped
+# exactly when things are going badly. githooks/pre-commit is the portable
+# substitute, and it is opt-in, so whether it is actually on is a fact worth
+# reporting rather than assuming.
+if [ -x githooks/pre-commit ]; then
+  hookspath=$(git -C "$repo" config --get core.hooksPath 2>/dev/null || true)
+  if [ "$hookspath" = "githooks" ]; then
+    ok "githooks/pre-commit is enabled — the gates run at commit time"
+  else
+    note "githooks/pre-commit exists but core.hooksPath is '${hookspath:-unset}' — run 'git config core.hooksPath githooks' to gate commits"
+  fi
+else
+  bad "githooks/pre-commit is missing or not executable — engines without hooks have no automatic gate"
+fi
+
 # Every source file the harness is made of must be text git can diff.
 #
 # A stray NUL byte makes git call a file binary: `git diff` shows `Bin 0 -> 4802
@@ -409,7 +427,7 @@ while IFS= read -r f; do
   nul_checked=$((nul_checked + 1))
   LC_ALL=C tr -d '\000' < "$f" | cmp -s - "$f" || nul_files="$nul_files $f"
 done <<EOF
-$(git -C "$repo" ls-files scripts .claude evals docs app/src app/tests 2>/dev/null)
+$(git -C "$repo" ls-files scripts .claude .gemini .codex githooks evals docs app/src app/tests AGENTS.md CLAUDE.md GEMINI.md 2>/dev/null)
 EOF
 if [ "$nul_checked" -eq 0 ]; then
   bad "no source files were examined for NUL bytes — the probe is inert"

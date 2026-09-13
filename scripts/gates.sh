@@ -120,11 +120,12 @@ app_gate() {
   run "$label" bash -c "printf '%s' \"\$1\" >&2; exit $status" _ "$out"
 }
 
-# ── the fast tier: what an edit can break, in about two seconds ──────────────
+# ── the fast tier: what an edit can break, in a couple of seconds ────────────
 app_gate "typecheck"      "$APP_TYPECHECK"
 app_gate "tests"          "$APP_TEST"
 run "clock boundary"      node scripts/clock-boundary.mjs
 run "ci trigger"          node scripts/ci-trigger.mjs
+run "agent contract"      node scripts/agent-contract.mjs
 
 # ── everything else ─────────────────────────────────────────────────────────
 if [ $fast -eq 1 ]; then

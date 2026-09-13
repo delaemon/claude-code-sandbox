@@ -148,6 +148,13 @@ jobs:
       - name: Learn refuses unearned rows
         run: bash scripts/learn-check.sh
 
+      # Three engines are claimed to read one AGENTS.md, and each reaches it
+      # by a different mechanism -- an import, a filename, a settings key. So
+      # unwiring one leaves the other two reading it and everything else green.
+      # CI is where that gets caught for a change nobody ran the gates on.
+      - name: Agent contract
+        run: node scripts/agent-contract.mjs
+
       # `on:` is evaluated before any step runs, so the push trigger is the one
       # line that cannot read harness.config.json. Keeping it in step with
       # git.baseBranch was a comment until this check existed, and both had

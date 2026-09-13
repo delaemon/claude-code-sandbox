@@ -12,11 +12,26 @@
     "the shell, so a browser does, and a machine with no browser driver reports",
     "did-not-run rather than ok."
   ],
-
   "git": {
     "baseBranch": "agentic-ai-harness-v1"
   },
-
+  "engines": {
+    "$comment": [
+      "Which coding agents this repository claims to support, and the one",
+      "file they all read. scripts/agent-contract.mjs asserts each one",
+      "still reaches it -- they get there by three different mechanisms,",
+      "so breaking one leaves the other two working and CI green.",
+      "",
+      "Remove an engine here and its wiring stops being checked. That is",
+      "the honest way to drop support; silently letting it rot is not."
+    ],
+    "contract": "AGENTS.md",
+    "supported": [
+      "claude-code",
+      "codex",
+      "gemini-cli"
+    ]
+  },
   "context": {
     "$comment": [
       "The Stop hook says OVER when the last request carried this much context.",
@@ -27,7 +42,6 @@
     ],
     "compactAt": 400000
   },
-
   "app": {
     "dir": "app",
     "install": "npm ci",
@@ -36,17 +50,19 @@
     "smoke": "node smoke.mjs",
     "testReportsFailures": "Tests\\s+\\d+\\s+failed"
   },
-
   "clockBoundary": {
     "enabled": true,
     "srcDir": "app/src",
     "allowedFile": "main.ts",
     "forbidden": [
-      "Date.now", "performance.now", "setTimeout",
-      "setInterval", "requestAnimationFrame", "Math.random"
+      "Date.now",
+      "performance.now",
+      "setTimeout",
+      "setInterval",
+      "requestAnimationFrame",
+      "Math.random"
     ]
   },
-
   "$mutants": [
     "Each mutant damages BEHAVIOUR and must be noticed by a test that reports",
     "a failure -- not merely by the run exiting non-zero, which a mutant that",

@@ -31,7 +31,8 @@ ledger=docs/LEDGER.md
 # a ledger row reading as fiction.
 . "$(dirname "$0")/app-config.sh"
 checkers=()
-for f in scripts/*.sh scripts/*.mjs evals/run.sh .claude/hooks/*; do
+for f in scripts/*.sh scripts/*.mjs evals/run.sh githooks/* \
+         .claude/hooks/* .gemini/* .codex/*; do
   [ -f "$f" ] && checkers+=("$f")
 done
 # The application's own check command, wherever harness.config.json points.

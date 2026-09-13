@@ -66,6 +66,9 @@ happening again.
 | 41 | A `doctor.sh` probe ran a hook without redirecting stdin; the hook waited for its event and blocked for ever. No output, no error, and a check that hangs never reports at all | `no hook answered --where` | yes |
 | 42 | Ledger rows were written by hand, so a row could be added whose check had never been seen to catch anything — `ledger.sh` only asks whether the named check exists | `scripts/learn-check.sh` | yes |
 | 43 | A stray NUL byte made a check's source read as binary to git, so `git diff` showed only a byte count and the agent-behaviour review could not report what had changed in it | `text git can diff` | yes |
+| 44 | Three engines were claimed to read one contract, and each reached it by a different mechanism — so unwiring one (dropping `@AGENTS.md` from CLAUDE.md) left the other two reading it, CI green, and one line removed in a markdown file | `scripts/agent-contract.mjs` | yes |
+| 45 | The agent-behaviour review watched `.claude/**` and `CLAUDE.md` only, so the two engines added later could change what an agent may do — or unwire themselves from the contract — with no line in the review at all | `scripts/agent-config-diff.sh` | yes |
+| 46 | Only one of the three engines can run something on every turn, so under the other two nothing ran the gates automatically at all — and the repository said nothing about it | `have no automatic gate` | yes |
 
 ## Closed since, and how
 

@@ -1,201 +1,73 @@
-# CLAUDE.md
+@AGENTS.md
 
-Guidance for Claude Code working in this repository.
+# Claude Code adapter
 
-## What this repository is
+Everything above is the engine-neutral contract, read by Codex and Gemini CLI
+too. What follows is **only** what is specific to Claude Code. Nothing here
+restates the contract, and nothing here belongs in `AGENTS.md`:
+`scripts/agent-contract.mjs` fails if a heading appears in both.
 
-A reusable harness for agentic development, and one application to keep it
-honest. The harness is the point; `app/` exists because a harness with nothing
-pointed at it cannot be caught lying. Four of its gates reported "did not run"
-until the application arrived, and pointing it at one produced ten ledger rows
-in an afternoon.
+Claude Code reads `CLAUDE.md`, not `AGENTS.md`, which is why the first line of
+this file is an import. Anthropic's own documentation recommends exactly that
+arrangement. If the import is removed, this engine silently runs on a different
+contract from the other two — so it is checked, not trusted.
 
-Everything project-specific lives in **`harness.config.json`** — where the code
-is, how to install, typecheck, test and smoke it, which mutants to apply, which
-branch is the integration branch. No script, hook or workflow knows a directory
-name. Adding a hardcoded path to one is the thing to avoid here.
+## Hooks (`.claude/hooks/`)
 
-| Path | Holds |
-| --- | --- |
-| `harness.config.json` | The only file that knows what this harness is pointed at. |
-| `.claude/` | Hooks, agents, commands and settings — the part that survives a VM reclaim. |
-| `app/` | The application the harness is pointed at. A pure core, and one shell file holding every clock, random source and DOM call. |
-| `scripts/` | The gates. `gates.sh` runs them all and gives one verdict; `autopilot.mjs` says which to fix first; `learn.mjs` records what was learned. |
-| `evals/` | Replays the failures in `docs/LEDGER.md` against the checks that claim to catch them. |
-| `docs/LEDGER.md` | Every failure this harness has had, and the check that catches it now. |
-| `docs/worklog/` | `CONTRACT.md`, what parallel agents must agree on before they start, and one log per run. |
-| `audit_log/` | Redacted transcripts of every agent run, and what each session spent. |
-| `.github/workflows/` | CI — the same gates in a third environment. |
+Hooks are the reason the loop closes under Claude Code and has to be arranged
+differently elsewhere: they are how *this* engine executes something on every
+turn. `githooks/pre-commit` is the portable equivalent for engines without
+them. See `docs/ENGINES.md`.
 
-## The one rule
+`doctor.sh` asserts what each hook *does*, so what follows is only the reasoning
+a check cannot hold:
 
-**A guard that cannot run must not look like a guard that passed.** Every
-failure in `docs/LEDGER.md` is a version of it, and the exit codes carry it:
+- `settings.json` allowlists `npm`, `pytest`, the harness's own entry points and
+  read-only commands. **`npm install` is deliberately absent**: pulling an
+  arbitrary package is exactly the moment a prompt is worth paying for. So are
+  `Bash(node:*)` and `Bash(bash:*)` — either is arbitrary code execution.
+- `block-secrets.sh` falls back to matching its raw payload when no JSON parser
+  is available, **over-blocking rather than failing open**.
+- `session-start.sh` and `typecheck.sh` read `harness.config.json` and do
+  nothing when no application is configured. `typecheck.sh` also exits 0 when
+  `node_modules` is missing, so it can never block work before install.
+- `log-usage.sh` **exits 0 on every path**. A Stop hook that blocked could stop
+  a session from ever finishing, which is worse than a missing row.
+- `gate-stop.sh` (Stop) runs the **fast** gate tier and returns the work order
+  through `additionalContext`. It also **exits 0 on every path**, stays silent
+  when the working tree and HEAD are unchanged since its last verdict, and
+  never says green — the fast tier asks five questions of sixteen, and the line
+  names the eleven it did not ask.
+- `record-subagent.sh` (SubagentStop) writes to `audit_log/subagents.jsonl`. It
+  records the payload's **known fields by value and the rest by name only**: the
+  documented schema is incomplete, this repository is public, and an
+  unrecognised field could hold conversation text. Its known list is therefore a
+  disclosure decision — only fields that cannot carry a message belong in it —
+  and `doctor.sh` asserts both halves.
 
-| exit | means | `gates.sh` shows |
-| --- | --- | --- |
-| 0 | ran, passed | `ok` |
-| 1 | ran, failed | `FAIL` |
-| 2 | could not look | `FAIL` — a broken guard is a failure |
-| 3 | not configured | `note  did not run` |
+**Hook contract.** The event arrives as JSON on stdin. **Exit 2 blocks**, on the
+events that support blocking (`PreToolUse`, `UserPromptSubmit`, `Stop`), and the
+reason comes from stderr. Any other non-zero code surfaces an error without
+blocking.
 
-With no `app.dir` set, typecheck, tests, the clock boundary, the browser smoke
-check and mutation testing report **3**. They are not green. Keep it that way:
-a template that printed `ok` for a check it never performed would teach the
-opposite of its own lesson.
+**Exit 0 is not silent.** Stderr is discarded, but **stdout is read as JSON**,
+and `hookSpecificOutput.additionalContext` reaches the next turn's reasoning —
+supported on `Stop`, `SessionStart`, `UserPromptSubmit` and `PostToolUse`, but
+not `PreToolUse`, which uses `permissionDecision` instead.
 
-**That vocabulary is a contract between the scripts here, and nothing else
-speaks it.** `tsc` exits 2 for "type errors found"; a test runner that blows up
-can exit anything. So `gates.sh` translates an application command's code
-rather than passing it through — zero is a pass, anything else is a failed
-gate — and did-not-run stays a judgement the harness makes, never one an
-arbitrary command makes on its behalf. Reading them literally meant a test
-command exiting 3 rendering as `note tests did not run` while `gates.sh`
-exited 0: the suite died and the gates passed. Ledger row 38.
+**Reach for exit 0 with `additionalContext` first; exit 2 is for stopping
+something, not for being heard.** Believing otherwise cost a tool call every
+turn — `docs/LEDGER.md` row 8.
 
-`app.smoke` is the exception, and a deliberate one: it is a script written
-against this contract, living in this repository, and its exit 3 (no browser
-driver here) is passed through.
+A hook that breaks fails silently, so run a new one by hand against a case it
+should block and one it should allow, then give it a `doctor.sh` case.
 
-## Pointing it at an application
+**A hook that writes for itself must write somewhere git ignores.** `doctor.sh`
+asks each one where it writes, via `--where`, and requires the answer to be
+ignored. A hand-kept list of those paths went stale within an hour of being
+read — ledger row 40.
 
-Set `app.dir` in `harness.config.json` and the application gates turn on.
-`install`, `typecheck` and `test` are the commands to run inside that
-directory.
-
-`testReportsFailures` is the regex that means "the suite reported a failed
-test". Mutation testing needs it because **a non-zero exit is not a kill** — a
-mutant that breaks the parser or hangs also exits non-zero, with nothing having
-asserted on the behaviour it claims to test.
-
-**The boundary concentrates risk as well as removing it.** Pushing every clock,
-random source and DOM call into one file is what lets the core be tested with
-no browser and nothing flaky — and it leaves every remaining untestable thing
-in that one file, which nothing then opened. A browser found a fresh ten-mine
-game reporting `0` mines remaining, past fifty-two green tests. `app.smoke` is
-the gate for the shell: a command like `app.test`, so the harness still knows
-no directory name, and exit 3 rather than a pass on a machine with no browser
-driver.
-
-`clockBoundary` is opt-in and off by default: pushing clocks and randomness to a
-single file is a real design choice, not every project makes it, and a check
-configured for a project that did not make it fails on correct code.
-`evals/fixtures/clock/` is a fixture, not an application — it exists so the
-clock check is still exercised when no project is configured.
-
-**When adding a test, ask whether a plausible bug in the code it covers would
-fail it. If not, add a mutant.** Mutants must damage **behaviour, never data**:
-the first attempt to prove a renderer's colour tests bit did it by permuting the
-palette, which passes, correctly, because the expectations are written against
-that same palette.
-
-## Two environments, one flow
-
-The same flow from a cloud session and from a dev container: work on a session
-branch, open a PR against the integration branch, merge.
-
-| | Cloud session (mobile, web) | Dev container (a machine) |
-| --- | --- | --- |
-| Where it runs | Anthropic-managed VM, reclaimed when idle | Docker on your machine, repo bind-mounted |
-| Setup | none | **Reopen in Container** — `.devcontainer/devcontainer.json` |
-| Node | 22 | 22, pinned to the same major |
-| Opening a PR | the GitHub tools | `gh`, installed by a feature |
-| Type errors surface via | `hooks/typecheck.sh` | the language server, plus the same hook |
-| Edits land | in the VM; lost unless pushed | on your disk immediately |
-
-**`bash scripts/gates.sh` is the one command for "is this ready to push".**
-`--fast` is the couple-of-seconds tier the Stop hook runs, `--quick` skips the
-browser and the minutes-long gates, and `--json` hands the results to a program
-instead of asking it to parse coloured text. **A tier names the gates it did
-not ask**, and never prints "all gates pass".
-`doctor.sh` runs each hook and asserts its exit code, because a hook that works
-in one environment and quietly does nothing in the other is the failure that
-matters here. `same-everywhere.sh` asserts `doctor.sh` itself runs the same
-checks in both. CI runs all of them, so drift is caught rather than discovered.
-
-Follow from this when adding to the harness:
-
-- **Depend on `node`, not `python3`.** Node is required by the harness itself,
-  so it exists wherever this repository is usable. Python is optional and only
-  `audit_log`'s tests use it.
-- **A guard that cannot run must not look like a guard that passed.**
-  `block-secrets.sh` falls back to matching its raw input when no parser is
-  available, and still refuses.
-- **Add a case to `doctor.sh`** for anything new that could differ between the
-  two environments.
-
-### The loop runs itself
-
-Three things close the gap between "the gates exist" and "the gates were run
-and the right thing was fixed". That gap was the last step here done by hand,
-and it is where sessions went wrong: ending a turn believing green, or fixing a
-test that was only failing because the typecheck was.
-
-| | |
-| --- | --- |
-| `.claude/hooks/gate-stop.sh` | Stop hook. Runs the fast tier on every stop and returns the work order as `additionalContext`, so a turn cannot end believing green while the tree is red. Silent when nothing changed since its last verdict. |
-| `scripts/autopilot.mjs` | Orders the failures **by what causes what**, pulls the evidence out of each gate's own output shape, and says what to do next. Work it from the top. |
-| `scripts/learn.mjs` | Writes a ledger row and its eval case, replays the case, and **removes both unless the check was seen to catch the break**. |
-
-`learn.mjs` is why `docs/LEDGER.md`'s "verified by breaking" column is now
-earned rather than typed. Use it through `/harden`; it refuses a break that
-damages nothing, a break whose `sed` never matched, and a check that was
-already failing — all three of which have happened here and all three of which
-read as success if nobody looks.
-
-`/auto` is the whole loop as one command: ask, fix the cause, re-ask, harden
-anything that was the harness's own failure, stop only on the full set.
-
-The gate hook is bound by four ledger rows and they are why it looks the way it
-does: it writes nothing tracked (25), goes quiet after five stops inside a
-minute (11), is heard through exit 0 rather than exit 2 (8), and throws away a
-verdict about a tree that has since changed (32). **A hook that writes for
-itself must write somewhere git ignores** — `doctor.sh` asks each one where it
-writes, via `--where`, and requires the answer to be ignored. A hand-kept list
-of those paths went stale within an hour of being read.
-
-### The harness checks itself
-
-Several of `gates.sh`'s gates are about the harness rather than the
-application:
-
-- **`evals/run.sh`** replays every failure `docs/LEDGER.md` claims is caught.
-  Each case breaks something in a throwaway copy and asserts the named check
-  fails, **having first required it to pass** — without that, a check already
-  broken for some other reason would report a success it did not earn. The
-  ledger's "verified by breaking" column was a hand-written claim until this
-  existed. **A new check belongs here as a case, not only as a paragraph.**
-- **`scripts/ledger.sh`** asserts every check the ledger names still exists. A
-  deleted check means the failure can happen again, while the table goes on
-  saying it cannot.
-- **`scripts/eval-runner.sh`** puts four synthetic cases to the eval runner,
-  one per outcome. It cannot be an eval case — the runner refuses a `CHECK`
-  that re-enters it — so the suite that replays every other check was itself
-  unreplayed until this existed.
-- **`scripts/learn-check.sh`** exercises `learn.mjs`'s refusal path, which is
-  the half that matters and the half least likely to run on its own.
-- **`scripts/ci-trigger.mjs`** asserts CI actually runs on the integration
-  branch. `on:` is evaluated before any step, so it is the one line that cannot
-  read `harness.config.json`; keeping the two in step was a comment until this
-  existed, and both had drifted to a finished project's session branch.
-- **`scripts/agent-config-diff.sh`** reviews changes to the agent's own
-  configuration, below.
-
-### Changes to the agent's own behaviour
-
-Some files here decide what the agent may do and what the next session
-believes. `scripts/agent-config-diff.sh` holds the list, reports every change to
-them into the pull request summary, and **fails only when a guard is weaker than
-on the base** — adding one never blocks. The asymmetry is deliberate: changes to
-these files are constant, and a check that fails on all of them gets ignored.
-
-Its checks compare **effective state and behaviour, never diff lines** — ask "is
-`.env` still refused?", not "was this line removed?". A textual check cannot
-tell a rewrite that kept every protection from one that dropped them, and cannot
-see a guard hollowed out in place. `docs/LEDGER.md` row 4 is what happens
-otherwise. **Write new checks the same way.**
-
-### Token usage is logged, every session
+## Token usage
 
 **What a session or an agent run cost is written alongside the logs, always**,
 and **shown in the conversation every turn**. One definition throughout: output
@@ -223,11 +95,9 @@ the "uncommitted changes" warning arrives instead. Either way the next turn is
 provoked. `paths-ignore` does not help — on `pull_request` it is evaluated
 against the whole PR diff, not the push.
 
-**The line returns to the conversation on every stop.** It was once narrowed to
-threshold crossings on a suspicion of a hook talking itself into a loop — never
-diagnosed, and it removed something that had been asked for. A rate breaker
-targets the runaway instead: five stops inside a minute is faster than a person,
-so the line goes quiet and `turns.jsonl` keeps recording.
+**The line returns to the conversation on every stop.** A rate breaker targets a
+runaway rather than silence targeting it: five stops inside a minute is faster
+than a person, so the line goes quiet and `turns.jsonl` keeps recording.
 
 **Subagent totals cover only runs that left a transcript**, and the line says
 how many those are. `agent_transcript_path` names where a transcript would go,
@@ -259,24 +129,19 @@ stopped working. *Nothing enforces this — it is prose, and prose is missed.*
 That a session which could not be measured is never written as one that cost
 nothing **is** enforced, by `doctor.sh`.
 
-## Branch and PR workflow
+## Memory, rules and commands
 
-The integration branch is named in `harness.config.json` (`git.baseBranch`), and
-`scripts/branch-state.sh` is the one place that reads it. Work happens on
-disposable session branches (`claude/<slug>-<suffix>`) cut from it and merged
-back by pull request.
-
-- **Set the base explicitly on every PR.** GitHub resets the base dropdown to
-  the repository default, so a PR opened without setting it targets the wrong
-  branch. `scripts/ci-trigger.mjs` asserts that `git.baseBranch` and the
-  workflow's `push` trigger still name the same branch — they had both drifted
-  to a finished project's session branch, so CI would have run on nothing.
-- When the base advances, bring it in with `git merge`. Do **not** rebase:
-  session branches are already pushed, and rewriting their history breaks any
-  checkout that has them.
-- **Once your PR is merged, the branch is finished.** Re-cut it from the base
-  rather than committing on top of the merged tip. `scripts/branch-state.sh`
-  detects that state and prints the command; `doctor.sh` fails on it.
+- Project memory can live in `./CLAUDE.md` or `./.claude/CLAUDE.md`. This file
+  is the former, and it imports `AGENTS.md` rather than duplicating it.
+- `.claude/rules/*.md` with `paths:` frontmatter load only when Claude reads a
+  matching file. Prefer them over lengthening this file: adherence falls off
+  past ~200 lines, and everything above this heading is already loaded.
+- Slash commands live in `.claude/commands/`. `/auto` runs the whole loop,
+  `/gates` reports one verdict, `/harden` records a failure through
+  `learn.mjs`, `/ship` takes a change to a watched pull request, `/prune`
+  removes prose a check already enforces.
+- `/init` and `/import` both read `AGENTS.md`. Neither should be used to copy
+  it into this file — the import at the top is what keeps one contract.
 
 ## Cloud session constraints
 
@@ -291,85 +156,16 @@ background shell commands and running subagents are gone.
 - Durable state lives outside the VM: GitHub, and server-side Routines (the
   `send_later` tool).
 
-## Claude Code harness (`.claude/`)
-
-Config here survives a VM reclaim, so behaviour that must hold across sessions
-belongs in these files rather than in a prompt.
-
-`doctor.sh` asserts what each hook *does*, so what follows is only the reasoning
-a check cannot hold:
-
-- `settings.json` allowlists `npm`, `pytest` and read-only commands. **`npm
-  install` is deliberately absent**: pulling an arbitrary package is exactly the
-  moment a prompt is worth paying for.
-- `block-secrets.sh` falls back to matching its raw payload when no JSON parser
-  is available, **over-blocking rather than failing open**.
-- `session-start.sh` and `typecheck.sh` read `harness.config.json` and do
-  nothing when no application is configured. `typecheck.sh` also exits 0 when
-  `node_modules` is missing, so it can never block work before install.
-- `log-usage.sh` **exits 0 on every path**. A Stop hook that blocked could stop
-  a session from ever finishing, which is worse than a missing row.
-- `gate-stop.sh` (Stop) runs the **fast** gate tier and returns the work order
-  through `additionalContext`. It also **exits 0 on every path**, stays silent
-  when the working tree and HEAD are unchanged since its last verdict, and
-  never says green — the fast tier asks four questions of fifteen, and the line
-  names the eleven it did not ask.
-- `record-subagent.sh` (SubagentStop) writes to `audit_log/subagents.jsonl`. It
-  records the payload's **known fields by value and the rest by name only**: the
-  documented schema is incomplete, this repository is public, and an
-  unrecognised field could hold conversation text. Its known list is therefore a
-  disclosure decision — only fields that cannot carry a message belong in it —
-  and `doctor.sh` asserts both halves.
-
-**Hook contract.** The event arrives as JSON on stdin. **Exit 2 blocks**, on the
-events that support blocking (`PreToolUse`, `UserPromptSubmit`, `Stop`), and the
-reason comes from stderr. Any other non-zero code surfaces an error without
-blocking.
-
-**Exit 0 is not silent.** Stderr is discarded, but **stdout is read as JSON**,
-and `hookSpecificOutput.additionalContext` reaches the next turn's reasoning —
-supported on `Stop`, `SessionStart`, `UserPromptSubmit` and `PostToolUse`, but
-not `PreToolUse`, which uses `permissionDecision` instead.
-
-**Reach for exit 0 with `additionalContext` first; exit 2 is for stopping
-something, not for being heard.** Believing otherwise cost a tool call every
-turn — `docs/LEDGER.md` row 8.
-
-A hook that breaks fails silently, so run a new one by hand against a case it
-should block and one it should allow, then give it a `doctor.sh` case.
-
-Prefer a hook over an instruction in this file whenever something must happen
-every time: this file is advisory and can be missed, hooks are executed by the
-harness.
-
-### Plugins
+## Plugins
 
 `settings.json` registers `anthropics/claude-plugins-official` via
 `extraKnownMarketplaces` and enables plugins through `enabledPlugins`. **This
 works in cloud sessions** — verified here, with no per-user `claude plugin
-install`. A committed `settings.json` is a real distribution channel.
+install`. A committed `settings.json` is a real distribution channel, and one
+the other two engines do not have.
 
 Two limits it does not lift: plugins load at **session start**, so a change
 reaches only the next session and only on the branch that session checks out;
 and cloud sessions never start plugin language servers, which is why
 `hooks/typecheck.sh` rather than `typescript-lsp` is what catches type errors
 there.
-
-## CI (`.github/workflows/ci.yml`)
-
-One job on Node 22. It reads `harness.config.json` through
-`node scripts/config.mjs --github-output`, so it holds no project-specific fact
-either — the workflow is the same file in every repository using this harness.
-The harness gates always run; the application steps are skipped when no
-`app.dir` is set, and a step writes into the run summary saying they **did not
-run** rather than leaving four grey ticks next to green ones.
-
-On failure a step writes the **work order** into the run summary, so the checks
-page says which failure to fix first rather than leaving a wall of log to read
-on a phone.
-
-The `push` trigger names the integration branch explicitly, because a
-default-branch trigger would never fire here. `scripts/ci-trigger.mjs` is what
-keeps that line in step with `git.baseBranch`; `on:` is evaluated before any
-step runs, so it cannot read the config itself. The `pull_request` trigger is left
-unfiltered so every PR in the repository is checked.

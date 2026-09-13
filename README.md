@@ -103,6 +103,7 @@ rather than as a pass.
 | `doctor.sh` | does this environment satisfy what the flow assumes — including running each hook and asserting its exit code? |
 | `same-everywhere.sh` | does `doctor.sh` run the same checks on a workstation and in CI? |
 | `ci-trigger.mjs` | does CI actually run on the branch everything merges into? |
+| `agent-contract.mjs` | do all three agent engines still read the same `AGENTS.md`? |
 | `ledger.sh` | does every check the ledger names still exist? |
 | `eval-runner.sh` | can the eval suite tell its own four outcomes apart? |
 | `learn-check.sh` | does `learn.mjs` really refuse a row whose check catches nothing? |
@@ -121,9 +122,31 @@ Three tiers, and **a tier always names what it did not ask**:
 
 | | gates | takes |
 | --- | --- | --- |
-| `gates.sh --fast` | 4 | ~2s — what the Stop hook runs on every turn |
-| `gates.sh --quick` | 9 | ~20s |
-| `gates.sh` | 15 | ~2m — the only tier allowed to say *all gates pass* |
+| `gates.sh --fast` | 5 | ~2s — what runs on every turn, or at commit time |
+| `gates.sh --quick` | 10 | ~20s |
+| `gates.sh` | 16 | ~2m — the only tier allowed to say *all gates pass* |
+
+## Three engines, one contract
+
+Claude Code, Codex and Gemini CLI all work in this repository, and all three
+read the same **`AGENTS.md`**. Nothing is generated per vendor: each engine is
+pointed at the original by its own native mechanism.
+
+| | reads the contract via | engine-specific file |
+| --- | --- | --- |
+| Claude Code | `CLAUDE.md` with `@AGENTS.md` | `CLAUDE.md`, `.claude/` |
+| Codex | `AGENTS.md` natively | `.codex/` |
+| Gemini CLI | `.gemini/settings.json` → `context.fileName` | `GEMINI.md` |
+
+Three mechanisms means unwiring one leaves the other two working and CI green,
+so `scripts/agent-contract.mjs` reads what each engine would read and fails if
+any of them has lost the contract — or if an adapter has started restating it
+instead of importing it. [`docs/ENGINES.md`](docs/ENGINES.md) is the full
+picture, including why the contract is **not** compiled per vendor.
+
+Hooks, permissions, MCP servers and model choice stay per engine on purpose.
+Everything below that seam — `scripts/`, `evals/`, CI — never learns which
+engine invoked it.
 
 ## The loop that runs it
 
@@ -133,7 +156,8 @@ things are going badly. Three pieces close that, and
 
 | | |
 | --- | --- |
-| `.claude/hooks/gate-stop.sh` | Stop hook. Runs the fast tier every turn and hands the next turn a work order, so a turn cannot end believing green while the tree is red. Writes nothing tracked, goes quiet after five stops in a minute, never claims green from a subset. |
+| `.claude/hooks/gate-stop.sh` | Stop hook (Claude Code). Runs the fast tier every turn and hands the next turn a work order, so a turn cannot end believing green while the tree is red. Writes nothing tracked, goes quiet after five stops in a minute, never claims green from a subset. |
+| `githooks/pre-commit` | The same fast tier at commit time, for engines with no hook system. `git config core.hooksPath githooks` to enable. |
 | `scripts/autopilot.mjs` | Orders the failures by what causes what, pulls the evidence out of each gate's own output, says what to do next. |
 | `scripts/learn.mjs` | Writes a ledger row and its eval case, replays it, and **removes both unless the check was seen to catch the break**. |
 

@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# The engine-neutral automatic gate.
+#
+# Claude Code closes the loop with a Stop hook: it runs the fast gate tier on
+# every turn and hands the next turn a work order. Codex and Gemini CLI have no
+# equivalent, so under those engines the gates only run when somebody remembers
+# to run them -- which is the step that gets skipped exactly when things are
+# going badly.
+#
+# Every engine shells out to git. So git is where the portable version lives.
+# This runs `gates.sh --fast` and refuses a commit the fast tier fails.
+#
+# Opt in with:
+#
+#     git config core.hooksPath githooks
+#
+# It is opt-in rather than installed by a setup script because a repository
+# that silently rewrites your git configuration on clone is worse than one that
+# asks. `scripts/doctor.sh` reports whether it is enabled, so "I thought this
+# was on" is visible rather than assumed.
+#
+# Skipping it is `git commit --no-verify`, which is the right escape hatch: it
+# is explicit, it appears in shell history, and it does not require editing a
+# guard to get past it.
+#
+# **The fast tier is not the whole answer, and this says so.** Four gates of
+# sixteen. It catches what an edit breaks; it does not run the browser, the
+# mutants, or the eval replay. CI is the backstop for the rest, in every engine.
+set -uo pipefail
+
+repo=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+cd "$repo" || exit 0
+
+[ -f scripts/gates.sh ] || exit 0
+command -v node >/dev/null 2>&1 || {
+  # Node is what the harness is built on. Without it nothing here can run, and
+  # letting the commit through silently would be a guard that could not look
+  # reporting as a guard that passed.
+  echo "pre-commit: node is missing, so the gates could not run." >&2
+  echo "This is not a pass. Commit with --no-verify if that is deliberate." >&2
+  exit 1
+}
+
+out=$(bash scripts/gates.sh --fast 2>&1)
+status=$?
+
+if [ $status -eq 0 ]; then
+  # One line on success. A hook that prints a wall of text on every commit is a
+  # hook people turn off.
+  printf '%s\n' "$out" | tail -2
+  exit 0
+fi
+
+printf '%s\n' "$out"
+echo
+echo "pre-commit: the fast gates failed, so this commit was refused." >&2
+echo "  node scripts/autopilot.mjs --fast   # what to fix first" >&2
+echo "  git commit --no-verify              # commit anyway, deliberately" >&2
+exit 1
