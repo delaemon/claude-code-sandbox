@@ -17,6 +17,17 @@
     "baseBranch": "agentic-ai-harness-v1"
   },
 
+  "context": {
+    "$comment": [
+      "The Stop hook says OVER when the last request carried this much context.",
+      "It warns; it never compacts. 400000 is Uber's published threshold, used",
+      "even on million-token models, and their reported win is cost rather than",
+      "accuracy. Set to 0 to turn the warning off deliberately -- an unreadable",
+      "config falls back to warning, so silence always means someone chose it."
+    ],
+    "compactAt": 400000
+  },
+
   "app": {
     "dir": "app",
     "install": "npm ci",

@@ -168,6 +168,44 @@ check_hook "typecheck ignores non-TypeScript" typecheck \
 check_hook "log-usage never blocks a stop"   log-usage \
   '{"session_id":"doctor-probe","transcript_path":"/nonexistent/t.jsonl"}' 0
 
+# The context warning, in all three directions that can go wrong.
+#
+# The hook has printed a bare `ctx` number every turn for a while, which nobody
+# can act on without knowing what large looks like. Saying OVER is the whole
+# value, so it has to be the thing asserted -- and the third case below is the
+# one that matters: a config that fails to load must still warn. A threshold
+# that switched itself off on a parse error would be a guard that looks like it
+# ran, which is the failure this repository keeps returning to.
+ctx_dir=$(mktemp -d)
+mkdir -p "$ctx_dir/off/audit_log" "$ctx_dir/broken/audit_log"
+sed 's/"compactAt": 400000/"compactAt": 0/' "$repo/harness.config.json" \
+  > "$ctx_dir/off/harness.config.json" 2>/dev/null
+echo 'not json' > "$ctx_dir/broken/harness.config.json"
+# ctx is input + cache writes + cache reads of the LAST usage record.
+printf '{"message":{"usage":{"output_tokens":100,"input_tokens":1000,"cache_creation_input_tokens":0,"cache_read_input_tokens":499000}}}\n' > "$ctx_dir/over.jsonl"
+printf '{"message":{"usage":{"output_tokens":100,"input_tokens":1000,"cache_creation_input_tokens":0,"cache_read_input_tokens":99000}}}\n'  > "$ctx_dir/under.jsonl"
+ctx_run() {
+  printf '{"session_id":"ctxprobe","transcript_path":"%s"}' "$1" \
+    | CLAUDE_PROJECT_DIR="$2" USAGE_LOG="$ctx_dir/u.md" TURNS_LOG="$ctx_dir/t.jsonl" \
+      SUBAGENT_CACHE="$ctx_dir/c.json" bash "$repo/.claude/hooks/log-usage.sh" 2>/dev/null
+}
+ctx_over=$(ctx_run "$ctx_dir/over.jsonl" "$repo")
+ctx_under=$(ctx_run "$ctx_dir/under.jsonl" "$repo")
+ctx_off=$(ctx_run "$ctx_dir/over.jsonl" "$ctx_dir/off")
+ctx_broken=$(ctx_run "$ctx_dir/over.jsonl" "$ctx_dir/broken")
+rm -rf "$ctx_dir"
+if ! printf '%s' "$ctx_over" | grep -q 'OVER'; then
+  bad "log-usage does not warn past context.compactAt — the number is printed and nobody can act on it"
+elif printf '%s' "$ctx_under" | grep -q 'OVER'; then
+  bad "log-usage warns below context.compactAt — a warning on every turn is a warning nobody reads"
+elif printf '%s' "$ctx_off" | grep -q 'OVER'; then
+  bad "log-usage warns with context.compactAt 0 — turning it off has to work"
+elif ! printf '%s' "$ctx_broken" | grep -q 'OVER'; then
+  bad "log-usage goes quiet when harness.config.json will not parse — a guard that cannot read its threshold must warn, not hide"
+else
+  ok "log-usage warns past context.compactAt, is quiet under it, and still warns when the config will not parse"
+fi
+
 # The probe transcript must EXIST and merely carry no usage, or the hook stops
 # at its "file is missing" guard and this check passes without reaching the one
 # it is here to test. The first version of this check made exactly that mistake
