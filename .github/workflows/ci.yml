@@ -17,7 +17,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [agentic-ai-harness-v1]
+    branches: [agentic-ai-harness-v1, hyper-agentic-ai-harness]
 
 permissions:
   contents: read
