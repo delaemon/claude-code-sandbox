@@ -13,7 +13,7 @@
     "did-not-run rather than ok."
   ],
   "git": {
-    "baseBranch": "agentic-ai-harness-v1"
+    "baseBranch": "agentic-ai-harness-v2"
   },
   "engines": {
     "$comment": [

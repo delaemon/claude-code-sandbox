@@ -10,5 +10,5 @@ records is absent rather than zero.
 
 | session | requests | tokens | updated |
 |---|---|---|---|
-| `a7d72e0e` | ~500 | ~1,500,000 | 2026-09-13 |
+| `a7d72e0e` | ~500 | ~2,000,000 | 2026-09-13 |
 | `fb2095ed` | ~2,000 | ~8,500,000 | 2026-09-13 |

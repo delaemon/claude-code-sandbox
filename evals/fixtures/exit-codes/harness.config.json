@@ -10,7 +10,13 @@
     "shares only `0 means success`, and `tsc` really does exit 2 for type",
     "errors found."
   ],
-  "git": { "baseBranch": "agentic-ai-harness-v1" },
+  "$branchComment": [
+    "This value is arbitrary and the check that uses this fixture does not read",
+    "it: doctor.sh asks the JSON report for the `tests` gate's status and",
+    "nothing else. It is kept in step with the real integration branch only so",
+    "that a stale name here does not read as something worth fixing."
+  ],
+  "git": { "baseBranch": "agentic-ai-harness-v2" },
   "app": {
     "dir": "evals/fixtures/exit-codes",
     "install": "true",
