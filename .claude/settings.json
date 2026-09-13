@@ -32,7 +32,25 @@
       "Bash(npm test:*)",
       "Bash(npm run:*)",
       "Bash(npx vitest:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(bash scripts/gates.sh:*)",
+      "Bash(bash scripts/doctor.sh:*)",
+      "Bash(bash scripts/ledger.sh:*)",
+      "Bash(bash scripts/branch-state.sh:*)",
+      "Bash(bash scripts/same-everywhere.sh:*)",
+      "Bash(bash scripts/eval-runner.sh:*)",
+      "Bash(bash scripts/learn-check.sh:*)",
+      "Bash(bash scripts/agent-config-diff.sh:*)",
+      "Bash(bash evals/run.sh:*)",
+      "Bash(node scripts/autopilot.mjs:*)",
+      "Bash(node scripts/learn.mjs:*)",
+      "Bash(node scripts/clock-boundary.mjs:*)",
+      "Bash(node scripts/ci-trigger.mjs:*)",
+      "Bash(node scripts/mutate.mjs:*)",
+      "Bash(node scripts/smoke.mjs:*)",
+      "Bash(node scripts/churn-check.mjs:*)",
+      "Bash(node scripts/config.mjs:*)",
+      "Bash(node scripts/fold-logs.mjs:*)"
     ]
   },
   "hooks": {

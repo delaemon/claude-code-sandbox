@@ -4,19 +4,23 @@ Guidance for Claude Code working in this repository.
 
 ## What this repository is
 
-A reusable harness for agentic development, and nothing else yet. The
-application is whatever the next project puts here; the harness is the point.
+A reusable harness for agentic development, and one application to keep it
+honest. The harness is the point; `app/` exists because a harness with nothing
+pointed at it cannot be caught lying. Four of its gates reported "did not run"
+until the application arrived, and pointing it at one produced ten ledger rows
+in an afternoon.
 
 Everything project-specific lives in **`harness.config.json`** — where the code
-is, how to install, typecheck and test it, which mutants to apply, which branch
-is the integration branch. No script, hook or workflow knows a directory name.
-Adding a hardcoded path to one is the thing to avoid here.
+is, how to install, typecheck, test and smoke it, which mutants to apply, which
+branch is the integration branch. No script, hook or workflow knows a directory
+name. Adding a hardcoded path to one is the thing to avoid here.
 
 | Path | Holds |
 | --- | --- |
 | `harness.config.json` | The only file that knows what this harness is pointed at. |
 | `.claude/` | Hooks, agents, commands and settings — the part that survives a VM reclaim. |
-| `scripts/` | The gates. `gates.sh` runs them all and gives one verdict. |
+| `app/` | The application the harness is pointed at. A pure core, and one shell file holding every clock, random source and DOM call. |
+| `scripts/` | The gates. `gates.sh` runs them all and gives one verdict; `autopilot.mjs` says which to fix first; `learn.mjs` records what was learned. |
 | `evals/` | Replays the failures in `docs/LEDGER.md` against the checks that claim to catch them. |
 | `docs/LEDGER.md` | Every failure this harness has had, and the check that catches it now. |
 | `docs/worklog/` | `CONTRACT.md`, what parallel agents must agree on before they start, and one log per run. |
@@ -35,10 +39,23 @@ failure in `docs/LEDGER.md` is a version of it, and the exit codes carry it:
 | 2 | could not look | `FAIL` — a broken guard is a failure |
 | 3 | not configured | `note  did not run` |
 
-With no `app.dir` set, typecheck, tests, the clock boundary and mutation
-testing report **3**. They are not green. Keep it that way: a template that
-printed `ok` for a check it never performed would teach the opposite of its
-own lesson.
+With no `app.dir` set, typecheck, tests, the clock boundary, the browser smoke
+check and mutation testing report **3**. They are not green. Keep it that way:
+a template that printed `ok` for a check it never performed would teach the
+opposite of its own lesson.
+
+**That vocabulary is a contract between the scripts here, and nothing else
+speaks it.** `tsc` exits 2 for "type errors found"; a test runner that blows up
+can exit anything. So `gates.sh` translates an application command's code
+rather than passing it through — zero is a pass, anything else is a failed
+gate — and did-not-run stays a judgement the harness makes, never one an
+arbitrary command makes on its behalf. Reading them literally meant a test
+command exiting 3 rendering as `note tests did not run` while `gates.sh`
+exited 0: the suite died and the gates passed. Ledger row 38.
+
+`app.smoke` is the exception, and a deliberate one: it is a script written
+against this contract, living in this repository, and its exit 3 (no browser
+driver here) is passed through.
 
 ## Pointing it at an application
 
@@ -50,6 +67,15 @@ directory.
 test". Mutation testing needs it because **a non-zero exit is not a kill** — a
 mutant that breaks the parser or hangs also exits non-zero, with nothing having
 asserted on the behaviour it claims to test.
+
+**The boundary concentrates risk as well as removing it.** Pushing every clock,
+random source and DOM call into one file is what lets the core be tested with
+no browser and nothing flaky — and it leaves every remaining untestable thing
+in that one file, which nothing then opened. A browser found a fresh ten-mine
+game reporting `0` mines remaining, past fifty-two green tests. `app.smoke` is
+the gate for the shell: a command like `app.test`, so the harness still knows
+no directory name, and exit 3 rather than a pass on a machine with no browser
+driver.
 
 `clockBoundary` is opt-in and off by default: pushing clocks and randomness to a
 single file is a real design choice, not every project makes it, and a check
@@ -78,6 +104,10 @@ branch, open a PR against the integration branch, merge.
 | Edits land | in the VM; lost unless pushed | on your disk immediately |
 
 **`bash scripts/gates.sh` is the one command for "is this ready to push".**
+`--fast` is the couple-of-seconds tier the Stop hook runs, `--quick` skips the
+browser and the minutes-long gates, and `--json` hands the results to a program
+instead of asking it to parse coloured text. **A tier names the gates it did
+not ask**, and never prints "all gates pass".
 `doctor.sh` runs each hook and asserts its exit code, because a hook that works
 in one environment and quietly does nothing in the other is the failure that
 matters here. `same-everywhere.sh` asserts `doctor.sh` itself runs the same
@@ -94,9 +124,40 @@ Follow from this when adding to the harness:
 - **Add a case to `doctor.sh`** for anything new that could differ between the
   two environments.
 
+### The loop runs itself
+
+Three things close the gap between "the gates exist" and "the gates were run
+and the right thing was fixed". That gap was the last step here done by hand,
+and it is where sessions went wrong: ending a turn believing green, or fixing a
+test that was only failing because the typecheck was.
+
+| | |
+| --- | --- |
+| `.claude/hooks/gate-stop.sh` | Stop hook. Runs the fast tier on every stop and returns the work order as `additionalContext`, so a turn cannot end believing green while the tree is red. Silent when nothing changed since its last verdict. |
+| `scripts/autopilot.mjs` | Orders the failures **by what causes what**, pulls the evidence out of each gate's own output shape, and says what to do next. Work it from the top. |
+| `scripts/learn.mjs` | Writes a ledger row and its eval case, replays the case, and **removes both unless the check was seen to catch the break**. |
+
+`learn.mjs` is why `docs/LEDGER.md`'s "verified by breaking" column is now
+earned rather than typed. Use it through `/harden`; it refuses a break that
+damages nothing, a break whose `sed` never matched, and a check that was
+already failing — all three of which have happened here and all three of which
+read as success if nobody looks.
+
+`/auto` is the whole loop as one command: ask, fix the cause, re-ask, harden
+anything that was the harness's own failure, stop only on the full set.
+
+The gate hook is bound by four ledger rows and they are why it looks the way it
+does: it writes nothing tracked (25), goes quiet after five stops inside a
+minute (11), is heard through exit 0 rather than exit 2 (8), and throws away a
+verdict about a tree that has since changed (32). **A hook that writes for
+itself must write somewhere git ignores** — `doctor.sh` asks each one where it
+writes, via `--where`, and requires the answer to be ignored. A hand-kept list
+of those paths went stale within an hour of being read.
+
 ### The harness checks itself
 
-Three of `gates.sh`'s gates are about the harness rather than the application:
+Several of `gates.sh`'s gates are about the harness rather than the
+application:
 
 - **`evals/run.sh`** replays every failure `docs/LEDGER.md` claims is caught.
   Each case breaks something in a throwaway copy and asserts the named check
@@ -107,6 +168,16 @@ Three of `gates.sh`'s gates are about the harness rather than the application:
 - **`scripts/ledger.sh`** asserts every check the ledger names still exists. A
   deleted check means the failure can happen again, while the table goes on
   saying it cannot.
+- **`scripts/eval-runner.sh`** puts four synthetic cases to the eval runner,
+  one per outcome. It cannot be an eval case — the runner refuses a `CHECK`
+  that re-enters it — so the suite that replays every other check was itself
+  unreplayed until this existed.
+- **`scripts/learn-check.sh`** exercises `learn.mjs`'s refusal path, which is
+  the half that matters and the half least likely to run on its own.
+- **`scripts/ci-trigger.mjs`** asserts CI actually runs on the integration
+  branch. `on:` is evaluated before any step, so it is the one line that cannot
+  read `harness.config.json`; keeping the two in step was a comment until this
+  existed, and both had drifted to a finished project's session branch.
 - **`scripts/agent-config-diff.sh`** reviews changes to the agent's own
   configuration, below.
 
@@ -179,8 +250,9 @@ back by pull request.
 
 - **Set the base explicitly on every PR.** GitHub resets the base dropdown to
   the repository default, so a PR opened without setting it targets the wrong
-  branch. In this repository the default branch is a leftover session branch and
-  nothing is ever merged into it.
+  branch. `scripts/ci-trigger.mjs` asserts that `git.baseBranch` and the
+  workflow's `push` trigger still name the same branch — they had both drifted
+  to a finished project's session branch, so CI would have run on nothing.
 - When the base advances, bring it in with `git merge`. Do **not** rebase:
   session branches are already pushed, and rewriting their history breaks any
   checkout that has them.
@@ -219,6 +291,11 @@ a check cannot hold:
   `node_modules` is missing, so it can never block work before install.
 - `log-usage.sh` **exits 0 on every path**. A Stop hook that blocked could stop
   a session from ever finishing, which is worse than a missing row.
+- `gate-stop.sh` (Stop) runs the **fast** gate tier and returns the work order
+  through `additionalContext`. It also **exits 0 on every path**, stays silent
+  when the working tree and HEAD are unchanged since its last verdict, and
+  never says green — the fast tier asks four questions of fifteen, and the line
+  names the eleven it did not ask.
 - `record-subagent.sh` (SubagentStop) writes to `audit_log/subagents.jsonl`. It
   records the payload's **known fields by value and the rest by name only**: the
   documented schema is incomplete, this repository is public, and an
@@ -269,6 +346,12 @@ The harness gates always run; the application steps are skipped when no
 `app.dir` is set, and a step writes into the run summary saying they **did not
 run** rather than leaving four grey ticks next to green ones.
 
+On failure a step writes the **work order** into the run summary, so the checks
+page says which failure to fix first rather than leaving a wall of log to read
+on a phone.
+
 The `push` trigger names the integration branch explicitly, because a
-default-branch trigger would never fire here. The `pull_request` trigger is left
+default-branch trigger would never fire here. `scripts/ci-trigger.mjs` is what
+keeps that line in step with `git.baseBranch`; `on:` is evaluated before any
+step runs, so it cannot read the config itself. The `pull_request` trigger is left
 unfiltered so every PR in the repository is checked.
