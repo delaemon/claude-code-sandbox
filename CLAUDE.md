@@ -138,8 +138,9 @@ nothing **is** enforced, by `doctor.sh`.
   past ~200 lines, and everything above this heading is already loaded.
 - Slash commands live in `.claude/commands/`. `/auto` runs the whole loop,
   `/gates` reports one verdict, `/harden` records a failure through
-  `learn.mjs`, `/ship` takes a change to a watched pull request, `/prune`
-  removes prose a check already enforces.
+  `learn.mjs`, `/yield` asks which gates have ever caught anything, `/ship`
+  takes a change to a watched pull request, `/prune` removes prose a check
+  already enforces.
 - `/init` and `/import` both read `AGENTS.md`. Neither should be used to copy
   it into this file — the import at the top is what keeps one contract.
 

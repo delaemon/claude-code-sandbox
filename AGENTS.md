@@ -171,6 +171,40 @@ node scripts/learn.mjs --name <slug> --failure "<behaviour>" \
 `--next` prints the next free row number; `--dry-run` writes and verifies
 nothing.
 
+### Whether a gate is still worth having
+
+Seventeen gates, each added because something went wrong once, and nothing
+acting on the list in the other direction. That is a harness that can only
+grow, and "these checks are worth their two minutes" was the one claim here
+that nobody could check.
+
+`node scripts/yield.mjs` is the check. `scripts/gates.sh` appends what every
+gate did to `audit_log/gate-results.jsonl` on every run, and the report reads
+that against `docs/LEDGER.md`, which says what each gate was *built* for:
+
+| verdict | means |
+| --- | --- |
+| `biting` | has failed here — it is catching something |
+| `holding` | never failed here, but a ledger row says why it exists |
+| `quiet` | never failed here, and no ledger row explains it |
+| `too-early` | fewer runs than the floor — not enough to say anything |
+| `not-asked` | no recorded tier has run it |
+
+**It is a report, and never exits 1.** Deciding a check has stopped earning its
+place is a judgement about a codebase and a team; a program making it
+automatically would delete the guard whose whole value is that the failure
+stopped happening. Success looks exactly like silence, so **move a quiet gate to
+a slower tier before deleting it**, and let its ledger row decide.
+
+It also splits the ledger by which half of the work each failure came out of.
+A harness mostly catching its *own* failures is paying off its construction —
+a one-time cost. A harness catching the *application's* is the part that keeps
+returning, and that ratio is the number to watch when pointing this at a real
+codebase.
+
+An empty history reports **exit 3, did not run**, never a table of zeros: no
+runs and a gate that never bites look identical in one.
+
 ### Changes to the agent's own behaviour
 
 Some files decide what an agent may do and what the next session believes.

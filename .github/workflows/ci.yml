@@ -205,6 +205,24 @@ jobs:
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Which of these gates has ever caught anything here. Not a gate: it
+      # never fails, because deciding that a check has stopped earning its
+      # place is a judgement about a codebase and a team, and a program making
+      # it automatically would delete the guard whose whole value is that the
+      # failure stopped happening. It is on the checks page so the question
+      # gets asked at all. Exit 3 -- nothing recorded yet -- is expected on a
+      # runner, whose checkout carries only what was committed.
+      - name: Gate yield
+        if: always()
+        run: |
+          {
+            echo "### Gate yield"
+            echo
+            echo '```'
+            node scripts/yield.mjs 2>&1 || true
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
       # What this change does to the agent's own behaviour, written to the run
       # summary so it is on the checks page rather than buried in a log. It
       # fails only when a guard is weaker than on the base — adding one never

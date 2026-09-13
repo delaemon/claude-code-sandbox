@@ -168,6 +168,62 @@ write and verifies nothing.
 A tier always names what it skipped. `gates.sh --fast` says
 `every gate in this tier passes` and lists the rest — never `all gates pass`.
 
+## The fourth gap: nothing ever removed a gate
+
+The three gaps above are about a loop that adds. Something goes wrong, a check
+is written, a row is recorded — and the list of checks only ever gets longer,
+because no force in the loop points the other way. Seventeen gates cost about
+two minutes on every full run and a couple of seconds on every turn, and until
+`scripts/yield.mjs` existed there was nothing that could say which of the
+seventeen had ever repaid that.
+
+That matters most when this harness is pointed at somebody else's codebase.
+A gate is written against a failure that happened *here*; whether the same
+failure is a real risk *there* is a different question, and the honest answer is
+that nobody knows until it is measured. So it is measured:
+
+```
+   gates.sh  ──▶  audit_log/gate-results.jsonl   what each gate DID
+                          │                      (one line per run, staged
+                          │                       outside git, folded in)
+                          ▼
+   docs/LEDGER.md ──▶  yield.mjs  ──▶  a verdict per gate
+   what each gate                      biting / holding / quiet /
+   was BUILT for                       too-early / not-asked
+```
+
+Two sources answering different halves. A gate can be quiet for a hundred runs
+and still be the reason a class of failure stopped happening — which is why
+`holding` and `quiet` are different words, and why a gate with a ledger row is
+never called quiet. The distinction is the whole value: without it the report
+would be a ranking, and a ranking invites deleting whatever is at the bottom.
+
+**It never exits 1.** Two of the three things it could be wrong about — is this
+failure still plausible in this codebase, is this team still making this
+mistake — are not facts a program has. What the harness enforces is that the
+numbers exist and are honest; `doctor.sh` asserts that a run of the gates really
+does leave a record, because a recorder that quietly stopped would leave this
+reporting a frozen history that still looks like data. Ledger row 49.
+
+```console
+$ node scripts/yield.mjs
+  gate              runs  failed  last fail    ledger  verdict
+  clock boundary       3       0  —                1  holding
+  ci parity            3       0  —                1  holding
+  mutation             0       0  —                7  not-asked
+  ...
+
+  what the 50 recorded failures were
+    the harness itself    40
+    the application       10
+```
+
+That last split is the one to watch. 40 of 50 says this harness has spent most
+of its life catching its own construction errors — a real cost, but a one-time
+one. The application half is what recurs, and it only started accumulating once
+the harness was pointed at something. A harness whose ledger is still almost
+entirely about itself after a month on a real codebase is not yet earning.
+
 ## What is still a person's job
 
 Deciding whether a failure is worth a check at all, and stating it as a

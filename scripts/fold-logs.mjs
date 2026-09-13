@@ -29,6 +29,7 @@ const dir = process.env.AUDIT_DIR || path.join(repo, "audit_log");
 const STAGED = [
   { from: ".turns-pending.jsonl", to: "turns.jsonl", mode: "append" },
   { from: ".subagents-pending.jsonl", to: "subagents.jsonl", mode: "append" },
+  { from: ".gate-results-pending.jsonl", to: "gate-results.jsonl", mode: "append" },
   { from: ".usage-pending.md", to: "usage.md", mode: "replace" },
 ];
 

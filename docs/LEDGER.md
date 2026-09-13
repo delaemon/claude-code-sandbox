@@ -71,6 +71,8 @@ happening again.
 | 46 | Only one of the three engines can run something on every turn, so under the other two nothing ran the gates automatically at all — and the repository said nothing about it | `have no automatic gate` | yes |
 | 47 | The audit-log gate used `A && B \|\| C`, so a failing or missing pytest exited 0 and the gate printed `ok`. pytest was not installed here, so it had reported ok for a check that never ran — while `doctor.sh` correctly reported a note, and the one deciding "safe to push" was the one that lied | `scripts/gates.sh` | yes |
 | 48 | gates.sh and the CI workflow are two hand-maintained lists of the same questions, and nothing compared them — so a gate could exist locally and never run in CI. Two did: the audit-log tests and the usage-churn check, neither of which had a step at all | `scripts/ci-parity.mjs` | yes |
+| 49 | Nothing recorded what each gate did, so seventeen checks could only grow: every failure added one, no run ever said which had caught anything, and a gate that had never bitten cost time on every run with nothing saying so | `a gates run records what each gate did` | yes |
+| 50 | doctor.sh drives gates.sh against a fixture to test the runner, and those runs landed in the real gate record — the tests gate showed nine failures that were a fixture failing on purpose, and yield.mjs read them as a gate catching something | `a gates run against a fixture is not recorded` | yes |
 
 ## Closed since, and how
 

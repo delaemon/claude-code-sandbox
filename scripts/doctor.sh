@@ -475,6 +475,74 @@ else
   ok "$answered hook(s) answered --where"
 fi
 
+# A run of the gates must leave a record of what each gate did.
+#
+# scripts/yield.mjs is the answer to "which of these seventeen checks has ever
+# caught anything here", and it can only answer it from a record gates.sh
+# writes. If that write is removed, or the staged path drifts, yield.mjs keeps
+# reporting the history it already has -- a frozen table that still looks like
+# data, which is this repository's own failure shape pointed at its own numbers.
+#
+# Asserted by running the gates, not by grepping for the call. A textual check
+# would pass on a call that had been commented out inside a branch that never
+# runs, and the whole point of the record is that it is written every time.
+#
+# Run against the exit-codes fixture, which has a typecheck that passes and a
+# test command that fails. Two reasons: the probe costs a third of a second
+# instead of the application's couple of seconds, and -- the part that matters
+# -- a recorder that wrote every gate down as `ok` would satisfy a check that
+# only asked whether a line landed. The record has to tell the two apart.
+gr_stage=$(mktemp -d)
+HARNESS_CONFIG=evals/fixtures/exit-codes/harness.config.json AUDIT_DIR="$gr_stage" \
+  bash "$repo/scripts/gates.sh" --fast --json >/dev/null 2>&1
+if node -e '
+    const fs = require("node:fs");
+    const lines = fs.readFileSync(process.argv[1], "utf8").split("\n").filter((l) => l.trim());
+    if (lines.length === 0) process.exit(1);
+    const r = JSON.parse(lines[lines.length - 1]);
+    if (!r.tier || !r.gates) process.exit(1);
+    // The fixture passes typecheck and fails tests. A record that cannot show
+    // the difference is a line that landed and says nothing.
+    process.exit(r.gates.typecheck === "ok" && r.gates.tests === "fail" ? 0 : 1);
+  ' "$gr_stage/.gate-results-pending.jsonl" 2>/dev/null; then
+  ok "a gates run records what each gate did — scripts/yield.mjs has something to read"
+else
+  bad "a gates run recorded nothing usable — scripts/yield.mjs would keep reporting a frozen history as data"
+fi
+rm -rf "$gr_stage"
+
+# And the path it writes must be one git ignores, for the same reason every
+# hook output path is: a file that changes on every run of the gates has no
+# quiet state, and ledger row 25 is what that costs.
+if git -C "$repo" check-ignore -q "audit_log/.gate-results-pending.jsonl" 2>/dev/null; then
+  ok "the staged gate record is a path git ignores"
+else
+  bad "audit_log/.gate-results-pending.jsonl is not ignored — the tree dirties on every gates run"
+fi
+
+# And a run against a fixture must not land in the real record.
+#
+# doctor.sh drives gates.sh against evals/fixtures/ to assert things about the
+# runner itself, and those runs were being recorded: the `tests` gate showed
+# nine failures on the day the record was introduced, every one of them a
+# fixture failing on purpose. A diagnostic contaminating the record it checks is
+# ledger row 12, and scripts/yield.mjs reading it would have reported a gate as
+# biting on evidence it manufactured itself.
+#
+# Checked against the real staged log deliberately: the claim is precisely that
+# this file does not move, and a probe redirected away from it could not make
+# that claim. The cost of the check being wrong is one junk line in a log git
+# ignores, which is what it reports.
+gr_before=$(cksum < "$repo/audit_log/.gate-results-pending.jsonl" 2>/dev/null || echo none)
+HARNESS_CONFIG=evals/fixtures/exit-codes/harness.config.json \
+  bash "$repo/scripts/gates.sh" --fast --json >/dev/null 2>&1
+gr_after=$(cksum < "$repo/audit_log/.gate-results-pending.jsonl" 2>/dev/null || echo none)
+if [ "$gr_before" = "$gr_after" ]; then
+  ok "a gates run against a fixture is not recorded as a run of this harness"
+else
+  bad "a fixture run landed in the real gate record — yield.mjs would report a gate biting on evidence a probe made up"
+fi
+
 # The gate hook must never block a stop, whatever it finds. A Stop hook that
 # exits non-zero can stop a session from ever finishing, which is worse than
 # any verdict it could have delivered.

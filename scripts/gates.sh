@@ -172,6 +172,26 @@ for s in ${skipped+"${skipped[@]}"}; do
   record "$s" 4 "not run in this tier"
 done
 
+# What each gate did, appended to a staged log for scripts/yield.mjs.
+#
+# Seventeen gates and nothing saying which of them has ever caught anything: a
+# harness under those conditions can only grow, because every failure adds a
+# gate and no gate is ever removed. The record is what turns "these checks are
+# worth it" from a belief into something that can be looked up.
+#
+# Every tier records, including --fast and --json: the Stop hook's runs are the
+# bulk of the evidence, and the path written is one git ignores, so this is not
+# ledger row 25's tracked-file loop. A failure to record is SAID, never
+# swallowed -- a recorder that quietly stopped would leave yield.mjs reporting a
+# frozen history that still looks like data.
+tier=full; [ $quick -eq 1 ] && tier=quick; [ $fast -eq 1 ] && tier=fast
+if ! node "$(dirname "$0")/record-gates.mjs" "$outdir" "$tier" 2>/dev/null; then
+  # stderr, not say(): say() is silent under --json, and --json is what the
+  # Stop hook runs on every turn. A recorder that stopped there would stop
+  # exactly where most of the evidence comes from, and say nothing at all.
+  printf '  note  this run was not recorded — scripts/yield.mjs will not see it\n' >&2
+fi
+
 if [ "$json" -eq 1 ]; then
   node "$(dirname "$0")/gates-report.mjs" "$outdir"
   [ $failed -eq 0 ] || exit 1
