@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>Minesweeper</title>
+  </head>
+  <body>
+    <main class="app">
+      <header class="bar">
+        <label class="picker">
+          <span class="sr-only">Difficulty</span>
+          <select id="level"></select>
+        </label>
+        <div class="readouts">
+          <span class="readout" title="Mines not yet flagged">⚑ <span id="mines">0</span></span>
+          <span class="readout" title="Elapsed">⏱ <span id="time">0:00</span></span>
+        </div>
+        <button id="reset" type="button">New game</button>
+      </header>
+
+      <div id="status" data-state="playing">Playing</div>
+
+      <div id="board" class="board" role="grid" aria-label="Minefield"></div>
+
+      <footer class="foot">
+        Click to open, right-click to flag. Seed <code id="seed">—</code> —
+        the same seed always lays the same board.
+      </footer>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -71,6 +71,35 @@ jobs:
         working-directory: ${{ steps.cfg.outputs.app_dir }}
         run: ${{ steps.cfg.outputs.app_test }}
 
+      # The unit suite cannot reach the shell -- the clock boundary puts every
+      # untestable thing in one file by design, and nothing was opening it. The
+      # browser is what found a fresh ten-mine game reporting zero mines left,
+      # past fifty-two green tests. The driver is installed globally because
+      # app/smoke.mjs resolves it that way and the application's own
+      # dependencies stay free of it.
+      - name: Browser driver
+        if: steps.cfg.outputs.app_smoke != ''
+        run: |
+          npm install -g playwright@1.56.1
+          npx --yes playwright@1.56.1 install --with-deps chromium
+      - name: Smoke
+        if: steps.cfg.outputs.app_smoke != ''
+        run: node scripts/smoke.mjs
+
+      # Configured but not run is not a pass. If the smoke command is set and
+      # the steps above were skipped for any reason, say so in the summary
+      # rather than leaving a grey tick beside the green ones.
+      - name: No smoke check configured
+        if: steps.cfg.outputs.app_dir != '' && steps.cfg.outputs.app_smoke == ''
+        run: |
+          {
+            echo "### The shell was not checked"
+            echo
+            echo 'harness.config.json sets no `app.smoke`, so nothing drove the'
+            echo 'application in a browser. The unit suite cannot reach the file'
+            echo 'holding the clock, the randomness and the DOM.'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
       # The repository is worked on from a cloud session and from a dev
       # container, and the flow is only identical if both environments really do
       # satisfy the same assumptions. doctor.sh asserts them — including running

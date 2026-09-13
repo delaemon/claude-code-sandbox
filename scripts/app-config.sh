@@ -14,8 +14,9 @@ if [ -r "$_hc" ] && command -v node >/dev/null 2>&1; then
     console.log(`APP_INSTALL=${q(a.install)}`);
     console.log(`APP_TYPECHECK=${q(a.typecheck)}`);
     console.log(`APP_TEST=${q(a.test)}`);
+    console.log(`APP_SMOKE=${q(a.smoke)}`);
     console.log(`BASE_BRANCH=${q((c.git || {}).baseBranch)}`);
   ' "$_hc" 2>/dev/null)"
 fi
-: "${APP_DIR:=}" "${APP_INSTALL:=}" "${APP_TYPECHECK:=}" "${APP_TEST:=}"
+: "${APP_DIR:=}" "${APP_INSTALL:=}" "${APP_TYPECHECK:=}" "${APP_TEST:=}" "${APP_SMOKE:=}"
 : "${BASE_BRANCH:=}"

@@ -6,7 +6,11 @@
     "When `app.dir` is null the gates that need an application report exit 3",
     "-- did not run -- rather than passing. An unconfigured gate that prints ok",
     "is the failure this whole repository is built to refuse, and a template",
-    "that shipped one would teach the opposite of its own lesson."
+    "that shipped one would teach the opposite of its own lesson.",
+    "",
+    "`app.smoke` is the same idea one level out: the unit suite cannot reach",
+    "the shell, so a browser does, and a machine with no browser driver reports",
+    "did-not-run rather than ok."
   ],
 
   "git": {
@@ -14,16 +18,17 @@
   },
 
   "app": {
-    "dir": null,
+    "dir": "app",
     "install": "npm ci",
     "typecheck": "npm run typecheck",
     "test": "npm test",
+    "smoke": "node smoke.mjs",
     "testReportsFailures": "Tests\\s+\\d+\\s+failed"
   },
 
   "clockBoundary": {
-    "enabled": false,
-    "srcDir": null,
+    "enabled": true,
+    "srcDir": "app/src",
     "allowedFile": "main.ts",
     "forbidden": [
       "Date.now", "performance.now", "setTimeout",
@@ -31,5 +36,66 @@
     ]
   },
 
-  "mutants": []
+  "$mutants": [
+    "Each mutant damages BEHAVIOUR and must be noticed by a test that reports",
+    "a failure -- not merely by the run exiting non-zero, which a mutant that",
+    "breaks the parser or hangs also does.",
+    "",
+    "Nothing here permutes the palette in style.css. That was the first thing",
+    "tried in the project this harness came from, and it passes, correctly:",
+    "the expectations are written against the same palette. Which face a cell",
+    "shows is behaviour and lives in pure/view.ts; what colour an `n3` is, is",
+    "data. See docs/LEDGER.md row 3."
+  ],
+  "mutants": [
+    {
+      "name": "neighbour-offset-dropped",
+      "claim": "adjacency counts would be wrong in one direction and no test would notice",
+      "file": "app/src/pure/board.ts",
+      "find": "  [-1, -1], [0, -1], [1, -1],\n",
+      "replace": "  [0, -1], [1, -1],\n"
+    },
+    {
+      "name": "flood-fill-never-spreads",
+      "claim": "clicking an empty cell would open only that cell, and the game would be unplayable",
+      "file": "app/src/pure/game.ts",
+      "find": "    if (cell.adjacent === 0) {",
+      "replace": "    if (cell.adjacent === -1) {"
+    },
+    {
+      "name": "win-on-first-move",
+      "claim": "the win condition would fire as soon as any cell qualified, not every one",
+      "file": "app/src/pure/game.ts",
+      "find": "return board.cells.every((c) => c.mine || c.state === \"revealed\");",
+      "replace": "return board.cells.some((c) => c.mine || c.state === \"revealed\");"
+    },
+    {
+      "name": "flag-does-not-protect",
+      "claim": "a click would open a flagged cell, destroying what the player recorded",
+      "file": "app/src/pure/game.ts",
+      "find": "  if (clicked.state !== \"hidden\") return game;",
+      "replace": "  if (clicked.state === \"revealed\") return game;"
+    },
+    {
+      "name": "flag-leaks-the-mine",
+      "claim": "a flagged cell would show the mine under it, which is the one thing a flag must not do",
+      "file": "app/src/pure/view.ts",
+      "find": "    if (cell.state === \"flagged\") return FLAG;\n",
+      "replace": ""
+    },
+    {
+      "name": "first-click-not-safe",
+      "claim": "only the clicked cell would be kept clear, so the opening move would stop opening a region",
+      "file": "app/src/pure/rng.ts",
+      "find": "    for (const [nx, ny] of neighbours(dims, x, y)) forbidden.add(indexOf(dims, nx, ny));\n",
+      "replace": ""
+    },
+    {
+      "name": "clock-loses-its-padding",
+      "claim": "the clock would read 1:1 instead of 1:01 and the tests would not care",
+      "file": "app/src/pure/view.ts",
+      "find": "String(seconds).padStart(2, \"0\")",
+      "replace": "String(seconds)"
+    }
+  ]
 }

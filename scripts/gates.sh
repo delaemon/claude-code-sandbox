@@ -58,6 +58,10 @@ app_gate() {
 app_gate "typecheck"      "$APP_TYPECHECK"
 app_gate "tests"          "$APP_TEST"
 run "clock boundary"        node scripts/clock-boundary.mjs
+# The shell is the part the unit suite cannot reach. --quick skips it because it
+# builds and launches a browser, which is the one gate here that takes minutes.
+[ $quick -eq 1 ] || \
+run "smoke (browser)"     node scripts/smoke.mjs
 [ $quick -eq 1 ] || \
 run "mutation"            node scripts/mutate.mjs
 run "usage churn"         node scripts/churn-check.mjs

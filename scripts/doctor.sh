@@ -84,7 +84,7 @@ if [ $? -ne 0 ]; then
   bad "config.mjs --github-output failed: $cfg_out"
 else
   missing=""
-  for key in app_dir app_install app_typecheck app_test clock_boundary mutants; do
+  for key in app_dir app_install app_typecheck app_test app_smoke clock_boundary mutants; do
     printf '%s\n' "$cfg_out" | grep -q "^$key=" || missing="$missing $key"
   done
   if [ -n "$missing" ]; then

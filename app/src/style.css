@@ -1,0 +1,167 @@
+/* The palette lives here and nowhere else.
+ *
+ * docs/LEDGER.md row 3 is a renderer that ignored its palette while colour
+ * tests passed, because they asserted against the same palette they tested.
+ * The conclusion drawn was not "test the colours harder" -- a value compared
+ * against itself proves nothing however it is arranged -- but to put the
+ * *choice of face* in pure/view.ts where it is behaviour and can be tested, and
+ * leave the colours here as data. `n3` being this blue is a design decision. A
+ * flag showing while the game is on is a rule.
+ */
+
+:root {
+  color-scheme: light dark;
+  --bg: #11151c;
+  --panel: #1a2029;
+  --edge: #2b3543;
+  --ink: #e6edf6;
+  --dim: #8b98a9;
+  --hidden: #38455a;
+  --hidden-hover: #44536c;
+  --open: #202834;
+  --accent: #5ac8fa;
+  --bad: #ff6b6b;
+  --good: #6ee7a8;
+  --n1: #6aa9ff;
+  --n2: #6ee7a8;
+  --n3: #ff8f8f;
+  --n4: #c39bff;
+  --n5: #ffc46b;
+  --n6: #5fe3d2;
+  --n7: #e6edf6;
+  --n8: #8b98a9;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+.app {
+  width: 100%;
+  max-width: min(100%, 44rem);
+  display: grid;
+  gap: 12px;
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+select,
+button {
+  font: inherit;
+  color: var(--ink);
+  background: var(--hidden);
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+button:hover,
+select:hover { background: var(--hidden-hover); }
+
+.readouts { display: flex; gap: 14px; }
+
+.readout {
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+
+.readout span { color: var(--ink); }
+
+#status {
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  color: var(--dim);
+}
+
+#status[data-state="won"] { color: var(--good); }
+#status[data-state="lost"] { color: var(--bad); }
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 9), minmax(0, 1fr));
+  gap: 3px;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  padding: 8px;
+  touch-action: manipulation;
+  overflow-x: auto;
+}
+
+.cell {
+  aspect-ratio: 1;
+  min-width: 22px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 4px;
+  background: var(--hidden);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(11px, 2.4vw, 16px);
+  line-height: 1;
+}
+
+.cell.hidden:hover { background: var(--hidden-hover); }
+.cell.open { background: var(--open); cursor: default; }
+.cell.flagged { color: var(--accent); }
+.cell.mine { background: var(--open); color: var(--bad); }
+.cell.mine.blown { background: var(--bad); color: var(--bg); }
+.cell.flagged.wrong { color: var(--bad); }
+
+.cell.n1 { color: var(--n1); }
+.cell.n2 { color: var(--n2); }
+.cell.n3 { color: var(--n3); }
+.cell.n4 { color: var(--n4); }
+.cell.n5 { color: var(--n5); }
+.cell.n6 { color: var(--n6); }
+.cell.n7 { color: var(--n7); }
+.cell.n8 { color: var(--n8); }
+
+.foot {
+  color: var(--dim);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+code {
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

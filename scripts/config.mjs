@@ -87,6 +87,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     app_install: cfg.app?.install ?? "npm ci",
     app_typecheck: cfg.app?.typecheck ?? "npm run typecheck",
     app_test: cfg.app?.test ?? "npm test",
+    // Empty when unset, so the CI step gates on it and reports did-not-run
+    // rather than running an empty command and calling the result a pass.
+    app_smoke: dir ? (cfg.app?.smoke ?? "") : "",
     // Both gates need an application, so neither can be "on" without one --
     // otherwise a config with a stale clockBoundary block runs a check against
     // a source tree that is not there.

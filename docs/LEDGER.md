@@ -52,8 +52,14 @@ happening again.
 | 27 | Staging the logs silently disabled the check that the hook records nothing it cannot measure: it compared tracked files the hook had stopped writing, so it passed with the guard deleted | `log-usage records nothing` | yes |
 | 28 | Three `doctor.sh` cases took their probe from `$HOME/.claude/projects`, which CI does not have, so they were skipped there — printing neither ok nor bad, leaving doctor green with the guards they cover deleted | `scripts/same-everywhere.sh` | yes |
 | 29 | `git.baseBranch` and `ci.yml`'s push trigger both named `puyo-puyo-web`, a session branch from a finished project — so CI would never have run on the integration branch, and a trigger that fires on nothing does not error | `scripts/ci-trigger.mjs` | yes |
-| 30 | The eval runner reported a check exiting 3 as "already failing before the break", blaming a gate that was correctly saying it had no base ref to look at — and gave the case no way to arrange one | `scripts/eval-runner.sh` | yes |
-| 31 | A break that stops a check from running counted as a break the check caught: the runner accepted any non-zero exit, and exit 3 is what a guard that has been switched off reports | `scripts/eval-runner.sh` | yes |
+| 30 | The eval runner reported a check exiting 3 as "already failing before the break", blaming a gate that was correctly saying it had no base ref to look at — and gave the case no way to arrange one | `a check reporting did-not-run is named as that, not as failing` | yes |
+| 31 | A break that stops a check from running counted as a break the check caught: the runner accepted any non-zero exit, and exit 3 is what a guard that has been switched off reports | `a break that only switches the check off is refused` | yes |
+| 32 | The browser gate built only when `dist/` was missing, so it drove a bundle compiled before the change under test — it reported a failure already fixed, and would as readily have reported a pass already broken | `app/smoke.mjs` | yes |
+| 33 | Nothing looked at the shell at all. The clock boundary makes the core testable by concentrating every untestable thing in one file, and then no gate opened it: 52 green tests, and a fresh ten-mine game displaying `0` mines remaining | `scripts/smoke.mjs` | yes |
+| 34 | The browser gate right-clicked a cell by index on a randomly seeded board, so it went red on correct code whenever the opening fill had already opened that cell — a verdict that depended on the seed it happened to draw | `the board honours the pinned seed` | yes |
+| 35 | `ledger.sh` looked for assertion labels in `doctor.sh` alone, so a real, running check written anywhere else read as a row naming something that does not exist — the table calling its own working guards fiction | `scripts/ledger.sh` | yes |
+| 36 | Widening that search made `ledger.sh` credit itself: its own comment quotes a real label to explain a past mistake, so a check renamed away in `doctor.sh` still read as present | `scripts/ledger.sh` | yes |
+| 37 | `pipefail` plus `grep -q` reported two existing checks as missing: grep exits on its first match, `sed` is killed by SIGPIPE, and the pipeline takes the dead writer's status — so only labels matching early in a long file were affected, and the rest stayed green | `scripts/ledger.sh` | yes |
 
 ## Closed since, and how
 
