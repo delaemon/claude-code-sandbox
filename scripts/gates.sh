@@ -36,12 +36,20 @@ run() {
   fi
 }
 
+# Fold the staged hook output in first, so it lands in the commit these gates
+# are being run for. See scripts/fold-logs.mjs for why it is staged.
+node "$(dirname "$0")/fold-logs.mjs" >/dev/null 2>&1 || true
+
 echo "gates"
 run "typecheck"           bash -c 'cd puyopuyo && npm run typecheck'
 run "tests"               bash -c 'cd puyopuyo && npm test'
 run "clock boundary"        node scripts/clock-boundary.mjs
+[ $quick -eq 1 ] || \
+run "mutation"            node scripts/mutate.mjs
+run "usage churn"         node scripts/churn-check.mjs
 run "audit log tests"     bash -c 'command -v python3 >/dev/null && python3 -m pytest audit_log/test_export.py -q || echo "pytest unavailable; skipped"'
 run "environment"         bash scripts/doctor.sh
+run "same everywhere"     bash scripts/same-everywhere.sh
 run "failure ledger"      bash scripts/ledger.sh
 [ $quick -eq 1 ] || \
 run "agent behaviour"     bash scripts/agent-config-diff.sh

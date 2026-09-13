@@ -10,3 +10,8 @@ __pycache__/
 .pytest_cache/
 
 .env
+
+# Staged hook output, folded into the tracked logs by scripts/fold-logs.mjs
+audit_log/.turns-pending.jsonl
+audit_log/.subagents-pending.jsonl
+audit_log/.usage-pending.md

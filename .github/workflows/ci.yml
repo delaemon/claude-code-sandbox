@@ -4,6 +4,16 @@ name: CI
 # session branch, so a default-branch trigger would never fire for this project.
 # pull_request is left unfiltered because it is simpler and checks every PR in
 # the repository. Nothing is ever merged into the default branch here.
+# push is pinned to puyo-puyo-web: the repository default branch is a leftover
+# session branch, so a default-branch trigger would never fire for this project.
+# pull_request is left unfiltered because it is simpler and checks every PR.
+#
+# `paths-ignore` was tried here to stop log-only commits running CI, and does
+# not work for `pull_request`: a commit touching only audit_log/ still ran,
+# because the filter is evaluated against the pull request's whole diff rather
+# than the push that updated it. The loop it was meant to cut is cut at the
+# source instead -- the per-turn log is staged outside git until there is other
+# work to commit it with. See scripts/fold-turns.mjs.
 on:
   pull_request:
   push:
@@ -51,6 +61,14 @@ jobs:
       # can happen again, and the table would otherwise still claim it cannot.
       # CLAUDE.md called a grep "the check" keeping clocks and randomness out of
       # everything but main.ts. Nothing ran it. This does.
+      # doctor.sh must run the same checks here as it does on a workstation.
+      # Three of its cases took their probe from $HOME/.claude/projects, which
+      # this runner does not have, so they were skipped -- printing neither ok
+      # nor bad, and leaving doctor.sh green with those guards deleted.
+      - name: Same everywhere
+        working-directory: .
+        run: bash scripts/same-everywhere.sh
+
       - name: Clock boundary
         working-directory: .
         run: node scripts/clock-boundary.mjs
@@ -58,6 +76,12 @@ jobs:
       # The ledger says each failure is caught. These replay it: every case
       # breaks something in a throwaway copy and asserts the named check fails,
       # having first required it to pass.
+      # A passing suite proves the tests ran, not that they would catch
+      # anything. Each mutant damages behaviour and must be noticed.
+      - name: Mutation
+        working-directory: .
+        run: node scripts/mutate.mjs
+
       - name: Harness evals
         working-directory: .
         run: bash evals/run.sh

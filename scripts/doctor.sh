@@ -171,25 +171,87 @@ fi
 # The probes above must leave the real logs untouched. Asserting it here means a
 # future probe that forgets one of the hook output paths is caught, rather than
 # discovered as stray rows in a committed file.
+# Every hook must write only to staged paths, never to a tracked log. Fixing
+# one of two writers reads as fixed until the other fires -- turns.jsonl was
+# staged while subagents.jsonl kept dirtying the tree on its own.
+#
+# Asserted by behaviour, not by grep: log-usage.mjs legitimately *reads*
+# audit_log/usage.md to carry other sessions' rows forward, and a textual check
+# called that a write. Fire each hook with every staging path redirected, then
+# require the tracked logs to be untouched.
+stage=$(mktemp -d)
+tracked_before=$(cat "$repo"/audit_log/turns.jsonl "$repo"/audit_log/subagents.jsonl \
+                     "$repo"/audit_log/usage.md 2>/dev/null | cksum)
+stage_probe="$stage/probe.jsonl"
+printf '{"message":{"usage":{"output_tokens":900,"cache_creation_input_tokens":4100,"input_tokens":0}}}\n' > "$stage_probe"
+if [ -s "$stage_probe" ]; then
+  printf '{"session_id":"stageprobe","transcript_path":"%s"}' "$stage_probe" \
+    | USAGE_LOG="$stage/u.md" TURNS_LOG="$stage/t.jsonl" SUBAGENT_CACHE="$stage/c.json" \
+      bash "$repo/.claude/hooks/log-usage.sh" >/dev/null 2>&1
+fi
+printf '{"session_id":"stageprobe","agent_id":"probe"}' \
+  | SUBAGENT_INDEX="$stage/s.jsonl" bash "$repo/.claude/hooks/record-subagent.sh" >/dev/null 2>&1
+tracked_after=$(cat "$repo"/audit_log/turns.jsonl "$repo"/audit_log/subagents.jsonl \
+                    "$repo"/audit_log/usage.md 2>/dev/null | cksum)
+rm -rf "$stage"
+if [ "$tracked_before" = "$tracked_after" ]; then
+  ok "hooks write only staged logs, never the tracked ones"
+else
+  bad "a hook wrote into a tracked log — the working tree dirties every turn again"
+fi
+
 prod_before=$(cat "$repo/audit_log/turns.jsonl" 2>/dev/null | cksum)
 
 usage_log="$repo/audit_log/usage.md"
-probe=$(mktemp); printf '{"type":"user"}\n' > "$probe"
-turns_log="$repo/audit_log/turns.jsonl"
-before=$(cat "$usage_log" 2>/dev/null | cksum)
-turns_before=$(cat "$turns_log" 2>/dev/null | cksum)
-printf '%s' "{\"session_id\":\"doctor-probe\",\"transcript_path\":\"$probe\"}" \
-  | bash "$repo/.claude/hooks/log-usage.sh" >/dev/null 2>&1
-after=$(cat "$usage_log" 2>/dev/null | cksum)
-rm -f "$probe"
-# The hook truncates the session id to 8 characters, so the row would read
-# `doctor-p`. Grepping for the full name would never match and the assertion
-# would be dead — it was, on the first try.
+# A transcript with no usage records must produce no row at all. Checked
+# against the STAGED paths, because the hook no longer writes the tracked ones
+# -- when staging was introduced this check kept comparing the tracked files,
+# which by then never changed either way, and it passed against a hook with the
+# guard deleted. The eval suite caught that; it is why the probe below asserts a
+# positive first.
+# Both probes are synthesised. The first version took the positive case from
+# whatever real transcript happened to be under $HOME/.claude/projects, which
+# CI does not have -- so the whole check was skipped there, printing neither ok
+# nor bad, and doctor.sh passed with the guard deleted. The eval suite caught
+# it. A check that needs the machine it runs on to be a particular machine is a
+# check that does not run.
+probe_stage=$(mktemp -d)
+real_probe="$probe_stage/withusage.jsonl"
+printf '{"message":{"usage":{"output_tokens":900,"cache_creation_input_tokens":4100,"input_tokens":0}}}\n' \
+  > "$real_probe"
+empty_probe="$probe_stage/empty.jsonl"; printf '{"type":"user"}\n' > "$empty_probe"
+run_probe() {
+  printf '{"session_id":"doctor-probe","transcript_path":"%s"}' "$1" \
+    | USAGE_LOG="$probe_stage/u.md" TURNS_LOG="$probe_stage/t.jsonl" \
+      SUBAGENT_CACHE="$probe_stage/c.json" \
+      bash "$repo/.claude/hooks/log-usage.sh" 2>/dev/null
+}
+# Positive first: a transcript carrying usage must produce a row, or "no row"
+# below proves nothing about the guard.
+run_probe "$real_probe" >/dev/null
+if [ ! -s "$probe_stage/t.jsonl" ]; then
+  bad "log-usage wrote nothing for a readable transcript — the probe is inert"
+else
+  : > "$probe_stage/t.jsonl"; rm -f "$probe_stage/u.md"
+  run_probe "$empty_probe" >/dev/null
+  if [ -s "$probe_stage/t.jsonl" ] || [ -s "$probe_stage/u.md" ]; then
+    bad "log-usage recorded a session it could not measure"
+  else
+    ok "log-usage records nothing when it cannot measure"
+  fi
+fi
+rm -rf "$probe_stage"
+
 # Exit 0 carries a structured channel: JSON on stdout, whose additionalContext
 # reaches the next turn. It is the reason the usage line costs no tool call, so
 # it is asserted rather than assumed.
-real_t=$(ls -t "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1)
-if [ -n "$real_t" ]; then
+# Synthesised, not taken from whatever transcript happens to exist under $HOME.
+# Two checks here were written that way and did not run in CI at all, printing
+# neither ok nor bad -- a guard that needs a particular machine is a guard that
+# does not run.
+ctx_dir=$(mktemp -d); real_t="$ctx_dir/probe.jsonl"
+printf '{"message":{"usage":{"output_tokens":900,"cache_creation_input_tokens":4100,"input_tokens":0}}}\n' > "$real_t"
+if [ -s "$real_t" ]; then
   # Every output path the hook writes has to be redirected, not just the one
   # that existed when the probe was written. It gained turns.jsonl and this
   # probe left a `ctx-prob` row in the real one -- the same contamination that
@@ -210,24 +272,53 @@ if [ -n "$real_t" ]; then
     # Silence here is correct when the rounded row has not moved: the emission
     # is bounded so a Stop hook cannot talk itself into a loop. Reported rather
     # than passed silently, so a channel that has genuinely died is visible.
+    rm -rf "$ctx_dir"
     note "log-usage stayed silent — the usage row has not moved since last stop"
   else
     bad "log-usage no longer emits additionalContext on exit 0"
   fi
 fi
 
-turns_after=$(cat "$turns_log" 2>/dev/null | cksum)
-if [ "$before" = "$after" ] && [ "$turns_before" = "$turns_after" ] \
-   && ! grep -q 'doctor-p' "$usage_log" 2>/dev/null; then
-  ok "log-usage records nothing when it cannot measure"
-else
-  bad "log-usage wrote a row for a session it could not measure"
-fi
 
 # A subagent definition with broken or missing frontmatter does not error --
 # it simply never loads, and the session runs without the agent it thought it
 # had. Same for a slash command. Both are exactly the quiet-failure shape this
 # repository exists to refuse, so both are parsed here.
+# The rate breaker is the only thing standing between a Stop hook that speaks
+# every turn and one that could spend a quota unattended. The loop it guards
+# against was diagnosed as never having happened (ledger row 11), which makes it
+# insurance -- and insurance nobody checks is the thing this repository refuses.
+brk_dir=$(mktemp -d)
+brk_probe="$brk_dir/t.jsonl"
+printf '{"message":{"usage":{"output_tokens":900,"cache_creation_input_tokens":4100,"input_tokens":0}}}\n' > "$brk_probe"
+if [ -s "$brk_probe" ]; then
+  brk_last=""
+  for i in 1 2 3 4 5 6; do
+    brk_last=$(printf '{"session_id":"brkprobe","transcript_path":"%s"}' "$brk_probe" \
+      | USAGE_LOG="$brk_dir/u.md" TURNS_LOG="$brk_dir/t2.jsonl" \
+        SUBAGENT_CACHE="$brk_dir/c.json" \
+        bash "$repo/.claude/hooks/log-usage.sh" 2>/dev/null)
+  done
+  if printf '%s' "$brk_last" | grep -q 'silenced'; then
+    ok "log-usage goes quiet after six stops inside a minute"
+  else
+    bad "log-usage kept speaking through six stops in a minute — the breaker is gone"
+  fi
+fi
+rm -rf "$brk_dir"
+
+# Rounding is the only thing stopping usage.md changing on every stop. The first
+# version of this check lived here, in bash with a python3 probe, and failed
+# four ways at once -- it passed when the hook was deleted, when the column it
+# measures was deleted, missed any tightening under 12.5x, and skipped silently
+# without python3. It is scripts/churn-check.mjs now.
+churn_out=$(node "$repo/scripts/churn-check.mjs" 2>&1); churn_code=$?
+case $churn_code in
+  0) ok "usage.md holds still across an ordinary turn" ;;
+  1) bad "usage.md churns — $(printf '%s' "$churn_out" | tail -1)" ;;
+  *) bad "the churn check could not run — $(printf '%s' "$churn_out" | head -1)" ;;
+esac
+
 prod_after=$(cat "$repo/audit_log/turns.jsonl" 2>/dev/null | cksum)
 if [ "$prod_before" = "$prod_after" ]; then
   ok "doctor probes leave the real turn log alone"
