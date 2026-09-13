@@ -13,9 +13,7 @@
   },
   "permissions": {
     "allow": [
-      "Bash(pytest:*)",
-      "Bash(python -m pytest:*)",
-      "Bash(python3 -m pytest:*)",
+      "Bash(node --test:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",

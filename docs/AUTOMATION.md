@@ -14,7 +14,7 @@ one verdict. And then there was a gap, in three places:
 | gap | what actually happened |
 | --- | --- |
 | running them | a turn ends, nobody ran the gates, CI finds out twenty minutes and a push later — and two of the three engines have no way to run anything on a turn at all |
-| reading them | sixteen results, and the first one you fix is the one that was only failing because of another |
+| reading them | seventeen results, and the first one you fix is the one that was only failing because of another |
 | recording them | `/harden` ends in "add a row to `docs/LEDGER.md`" — a person editing a markdown table, ticking *verified by breaking* on their own authority |
 
 Each is small. Each is the kind of step that gets skipped precisely when things
@@ -61,7 +61,7 @@ is shared — `docs/ENGINES.md` has the table:
 
 #### `.claude/hooks/gate-stop.sh`
 
-A Stop hook running the **fast tier**: the five gates that answer in about two
+A Stop hook running the **fast tier**: the six gates that answer in about two
 seconds. The verdict comes back through `hookSpecificOutput.additionalContext`,
 so it reaches the next turn's reasoning at no cost in tool calls.
 
@@ -82,7 +82,7 @@ already had:
   verdict, so the fingerprint of what was checked is stored beside the result.
 
 And one rule that is not a row: **it never says green.** The fast tier asks
-five questions of sixteen, and the line it returns names the eleven it did not
+six questions of seventeen, and the line it returns names the eleven it did not
 ask. A subset reporting "all gates pass" is precisely the failure this
 repository exists to refuse.
 
@@ -161,9 +161,9 @@ write and verifies nothing.
 
 | | gates | takes | what it is for |
 | --- | --- | --- | --- |
-| `--fast` | 5 | ~2s | every stop, or every commit. What an edit can break. |
-| `--quick` | 10 | ~20s | no browser, no mutants, no eval replay. A sanity check mid-work. |
-| (none) | 16 | ~2m | before pushing. The only tier allowed to say *all gates pass*. |
+| `--fast` | 6 | ~2s | every stop, or every commit. What an edit can break. |
+| `--quick` | 11 | ~20s | no browser, no mutants, no eval replay. A sanity check mid-work. |
+| (none) | 17 | ~2m | before pushing. The only tier allowed to say *all gates pass*. |
 
 A tier always names what it skipped. `gates.sh --fast` says
 `every gate in this tier passes` and lists the rest — never `all gates pass`.

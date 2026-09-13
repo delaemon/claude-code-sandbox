@@ -171,7 +171,7 @@ const KNOWN = [
   {
     gate: "audit log tests",
     means: "audit_log's own tests are failing",
-    next: "run python3 -m pytest audit_log/test_export.py -q",
+    next: "run node --test audit_log/export.test.mjs",
     lines: (o) => tail(o, 6),
   },
 ];

@@ -104,6 +104,7 @@ rather than as a pass.
 | `same-everywhere.sh` | does `doctor.sh` run the same checks on a workstation and in CI? |
 | `ci-trigger.mjs` | does CI actually run on the branch everything merges into? |
 | `agent-contract.mjs` | do all three agent engines still read the same `AGENTS.md`? |
+| `ci-parity.mjs` | does CI run every gate `gates.sh` runs? |
 | `ledger.sh` | does every check the ledger names still exist? |
 | `eval-runner.sh` | can the eval suite tell its own four outcomes apart? |
 | `learn-check.sh` | does `learn.mjs` really refuse a row whose check catches nothing? |
@@ -122,9 +123,9 @@ Three tiers, and **a tier always names what it did not ask**:
 
 | | gates | takes |
 | --- | --- | --- |
-| `gates.sh --fast` | 5 | ~2s — what runs on every turn, or at commit time |
-| `gates.sh --quick` | 10 | ~20s |
-| `gates.sh` | 16 | ~2m — the only tier allowed to say *all gates pass* |
+| `gates.sh --fast` | 6 | ~2s — what runs on every turn, or at commit time |
+| `gates.sh --quick` | 11 | ~20s |
+| `gates.sh` | 17 | ~2m — the only tier allowed to say *all gates pass* |
 
 ## Three engines, one contract
 

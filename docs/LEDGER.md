@@ -69,6 +69,8 @@ happening again.
 | 44 | Three engines were claimed to read one contract, and each reached it by a different mechanism — so unwiring one (dropping `@AGENTS.md` from CLAUDE.md) left the other two reading it, CI green, and one line removed in a markdown file | `scripts/agent-contract.mjs` | yes |
 | 45 | The agent-behaviour review watched `.claude/**` and `CLAUDE.md` only, so the two engines added later could change what an agent may do — or unwire themselves from the contract — with no line in the review at all | `scripts/agent-config-diff.sh` | yes |
 | 46 | Only one of the three engines can run something on every turn, so under the other two nothing ran the gates automatically at all — and the repository said nothing about it | `have no automatic gate` | yes |
+| 47 | The audit-log gate used `A && B \|\| C`, so a failing or missing pytest exited 0 and the gate printed `ok`. pytest was not installed here, so it had reported ok for a check that never ran — while `doctor.sh` correctly reported a note, and the one deciding "safe to push" was the one that lied | `scripts/gates.sh` | yes |
+| 48 | gates.sh and the CI workflow are two hand-maintained lists of the same questions, and nothing compared them — so a gate could exist locally and never run in CI. Two did: the audit-log tests and the usage-churn check, neither of which had a step at all | `scripts/ci-parity.mjs` | yes |
 
 ## Closed since, and how
 

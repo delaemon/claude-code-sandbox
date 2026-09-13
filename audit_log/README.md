@@ -4,13 +4,13 @@ Full transcripts of every subagent run, exported from the session VM into the
 repository so they outlive it.
 
 `runs/` is empty in the template: the transcripts a previous project produced
-are its own, and `export.py` regenerates this directory from whatever the
+are its own, and `export.mjs` regenerates this directory from whatever the
 current machine holds.
 
 ```bash
-python3 audit_log/export.py            # export + regenerate INDEX.md
-python3 audit_log/export.py --dry-run  # report without writing
-python3 -m pytest audit_log/test_export.py
+node audit_log/export.mjs            # export + regenerate INDEX.md
+node audit_log/export.mjs --dry-run  # report without writing
+node --test audit_log/export.test.mjs   # the redactor's tests
 ```
 
 - `runs/<agent-id>.jsonl` — one redacted transcript per agent run, one JSON
@@ -74,7 +74,7 @@ Two things the redactor deliberately does **not** touch:
   digests, which are exactly what an audit trail exists to preserve. The
   patterns are anchored on vendor prefixes and key names instead.
 
-`test_export.py` covers both directions, because a redactor is only as good as
+`export.test.mjs` covers both directions, because a redactor is only as good as
 its negative cases. It has already caught one real hole: the Google key pattern
 originally demanded an exact length and let a key one character off walk
 straight through.

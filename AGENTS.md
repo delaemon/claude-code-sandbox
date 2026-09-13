@@ -112,9 +112,9 @@ never prints "all gates pass".
 
 | | gates | takes |
 | --- | --- | --- |
-| `gates.sh --fast` | 5 | ~2s — what an edit can break |
-| `gates.sh --quick` | 10 | ~20s |
-| `gates.sh` | 16 | ~2m — the only tier allowed to say *all gates pass* |
+| `gates.sh --fast` | 6 | ~2s — what an edit can break |
+| `gates.sh --quick` | 11 | ~20s |
+| `gates.sh` | 17 | ~2m — the only tier allowed to say *all gates pass* |
 
 `node scripts/autopilot.mjs` turns a failing run into a work order: the failures
 ordered by **what causes what**, with the evidence pulled out of each gate's own
@@ -143,6 +143,9 @@ Several gates are about the harness rather than the application:
 - **`scripts/learn-check.sh`** exercises `learn.mjs`'s refusal path, which is
   the half that matters and the half least likely to run on its own.
 - **`scripts/agent-contract.mjs`** asserts every engine still reads this file.
+- **`scripts/ci-parity.mjs`** asserts CI runs every gate `gates.sh` runs.
+  They are two hand-maintained lists of the same questions and nothing
+  compared them; two gates had no CI step at all.
 - **`scripts/ci-trigger.mjs`** asserts CI actually runs on the integration
   branch. `on:` is evaluated before any step, so it is the one line that cannot
   read `harness.config.json`.
@@ -203,10 +206,13 @@ disposable session branches cut from it and merged back by pull request.
 
 ## Adding to the harness
 
-- **Depend on `node` and POSIX shell, and on nothing an engine provides.**
-  A gate that only runs under one agent is a gate the other two do not have.
-  Node is required by the harness itself, so it exists wherever this repository
-  is usable. Python is optional and only `audit_log`'s tests use it.
+- **Depend on `node` and POSIX shell, and on nothing else.** Not on a third
+  runtime, and not on anything an engine provides: a gate that only runs under
+  one agent is a gate the other two do not have. Node is required by the
+  harness itself and POSIX shell needs no installing, so between them the setup
+  cost is one thing. `audit_log` was the last holdout — its exporter and tests
+  were Python, and the gate that ran them printed `ok` with pytest not
+  installed, so they had never run here or in CI. `node --test` is built in.
 - **A guard that cannot run must not look like a guard that passed.**
   `block-secrets.sh` falls back to matching its raw input when no parser is
   available, and still refuses.

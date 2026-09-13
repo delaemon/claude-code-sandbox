@@ -64,14 +64,11 @@ else
   note "no gh — fine in a cloud session, where PRs go through the GitHub tools; install it in a dev container"
 fi
 
-# Python is optional by design: only audit_log's tests use it, and no hook does.
-if command -v python3 >/dev/null 2>&1; then
-  python3 -c 'import pytest' 2>/dev/null \
-    && ok "python3 with pytest — audit_log tests runnable" \
-    || note "python3 without pytest — 'pip install pytest' to run audit_log's tests"
-else
-  note "no python3 — audit_log's tests are unavailable; nothing else needs it"
-fi
+# No python3 probe. The harness needs node and POSIX shell and nothing else --
+# audit_log was the last thing that wanted a third runtime, and its tests run on
+# `node --test` now. The probe that used to be here reported a note while
+# gates.sh reported `ok` for the same never-executed check, which is the
+# disagreement ledger row 47 is about.
 
 echo
 echo "project"

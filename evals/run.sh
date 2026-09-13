@@ -37,7 +37,7 @@ clone_repo() {
   local dst="$1"
   mkdir -p "$dst"
   if ! ( cd "$repo" && tar -cf - --exclude=node_modules --exclude=dist \
-                              --exclude=.vite --exclude=.pytest_cache . ) \
+                              --exclude=.vite . ) \
        | ( cd "$dst" && tar -xf - ) 2>/dev/null; then
     # No usable tar. Copy everything and prune afterwards rather than run
     # against a clone that is missing files: a case is only evidence if what it

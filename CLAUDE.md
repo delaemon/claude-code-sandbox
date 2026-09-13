@@ -22,8 +22,8 @@ them. See `docs/ENGINES.md`.
 `doctor.sh` asserts what each hook *does*, so what follows is only the reasoning
 a check cannot hold:
 
-- `settings.json` allowlists `npm`, `pytest`, the harness's own entry points and
-  read-only commands. **`npm install` is deliberately absent**: pulling an
+- `settings.json` allowlists `npm`, `node --test`, the harness's own entry
+  points and read-only commands. **`npm install` is deliberately absent**: pulling an
   arbitrary package is exactly the moment a prompt is worth paying for. So are
   `Bash(node:*)` and `Bash(bash:*)` — either is arbitrary code execution.
 - `block-secrets.sh` falls back to matching its raw payload when no JSON parser
@@ -36,7 +36,7 @@ a check cannot hold:
 - `gate-stop.sh` (Stop) runs the **fast** gate tier and returns the work order
   through `additionalContext`. It also **exits 0 on every path**, stays silent
   when the working tree and HEAD are unchanged since its last verdict, and
-  never says green — the fast tier asks five questions of sixteen, and the line
+  never says green — the fast tier asks six questions of seventeen, and the line
   names the eleven it did not ask.
 - `record-subagent.sh` (SubagentStop) writes to `audit_log/subagents.jsonl`. It
   records the payload's **known fields by value and the rest by name only**: the
@@ -78,7 +78,7 @@ size times the turn count rather than the work.
 | --- | --- | --- |
 | `audit_log/turns.jsonl` | one line per stop, **append-only**, numbers only | `hooks/log-usage.sh` |
 | `audit_log/usage.md` | one rounded row per session | the same hook |
-| `audit_log/INDEX.md` | a `tokens` column per subagent run | `export.py` |
+| `audit_log/INDEX.md` | a `tokens` column per subagent run | `export.mjs` |
 | `docs/worklog/*.md` | the cost of the run an entry describes | by hand |
 
 **Per-turn detail goes in `turns.jsonl` because it appends.** The churn that

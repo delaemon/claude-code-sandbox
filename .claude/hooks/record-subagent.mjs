@@ -1,36 +1,36 @@
 // SubagentStop: record what the harness actually says about a finished subagent.
 //
-// audit_log/export.py finds subagent transcripts by globbing
+// audit_log/export.mjs finds subagent transcripts by globbing
 // `*/*/subagents/agent-*.jsonl` under the Claude config directory. That is a
 // guess about an internal layout, and while it is not silent when it breaks --
-// export.py exits 1 on an empty result, which was checked -- a guess that
+// export.mjs exits 1 on an empty result, which was checked -- a guess that
 // happens to be right is still a guess.
 //
 // The documented schema for this event is incomplete: `agent_id` and
 // `agent_type` are named, and `transcript_path` is described in a way that
 // suggests it is the PARENT session's, not the subagent's. So this does not
 // pretend to know the shape. It records the payload verbatim, minus anything
-// that looks like content, and export.py reconciles against it.
+// that looks like content, and export.mjs reconciles against it.
 //
 // The first job is therefore to learn the schema from the harness rather than
 // from a document that does not fully state it. That worked: two payloads in
 // audit_log/subagents.jsonl show `transcript_path` is the parent session's, and
 // that `agent_transcript_path` -- named nowhere in the published reference -- is
-// the field that would retire the glob in export.py.
+// the field that would retire the glob in export.mjs.
 //
 // So it is promoted to a known field and its value is now recorded. Knowing a
-// field exists is not knowing what it holds, and export.py cannot be pointed at
+// field exists is not knowing what it holds, and export.mjs cannot be pointed at
 // it until its value has been compared against what the glob finds. A path
 // carries no conversation text, so recording it is safe in a public log.
 //
-// That comparison has now been made, and it says NOT to point export.py here.
+// That comparison has now been made, and it says NOT to point export.mjs here.
 // The first recorded value named
 //   .../<session>/subagents/agent-<agent_id>.jsonl
 // which is exactly the shape the glob looks for and is derivable from agent_id
 // alone -- and the file did not exist, anywhere. The six transcripts the glob
 // does find are all older, from runs that wrote one. So this field names where a
 // transcript would go, not where one is: some subagents finish without leaving
-// a file. It could augment the glob; it cannot replace it, and export.py keeps
+// a file. It could augment the glob; it cannot replace it, and export.mjs keeps
 // globbing.
 //
 // Recorded because the shapes matching was nearly taken for agreement.

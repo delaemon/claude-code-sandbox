@@ -26,10 +26,6 @@ elif [ -n "$APP_INSTALL" ]; then
   fi
 fi
 
-if command -v python3 >/dev/null 2>&1 && python3 -c 'import pytest' 2>/dev/null; then
-  echo "audit_log: pytest available"
-fi
-
 state=$(bash scripts/branch-state.sh --fetch 2>/dev/null)
 case $? in
   1) echo "branch: $state" ;;

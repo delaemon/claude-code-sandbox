@@ -126,6 +126,7 @@ app_gate "tests"          "$APP_TEST"
 run "clock boundary"      node scripts/clock-boundary.mjs
 run "ci trigger"          node scripts/ci-trigger.mjs
 run "agent contract"      node scripts/agent-contract.mjs
+run "ci parity"           node scripts/ci-parity.mjs
 
 # ── everything else ─────────────────────────────────────────────────────────
 if [ $fast -eq 1 ]; then
@@ -143,7 +144,19 @@ else
     run "mutation"          node scripts/mutate.mjs
   fi
   run "usage churn"         node scripts/churn-check.mjs
-  run "audit log tests"     bash -c 'command -v python3 >/dev/null && python3 -m pytest audit_log/test_export.py -q || echo "pytest unavailable; skipped"'
+  # `node --test`, not a shell conditional.
+  #
+  # This was `command -v python3 && python3 -m pytest ... || echo "skipped"`,
+  # which is `A && B || C`: when python3 existed and pytest FAILED -- a missing
+  # module, or a failing assertion -- the `||` branch ran and the whole command
+  # exited 0. The gate printed `ok`. pytest was not installed on this machine,
+  # so it had printed `ok` for a check that never ran, every time, while
+  # doctor.sh correctly reported a note about it. The two disagreed and the one
+  # deciding "safe to push" was the one that lied. Ledger row 47.
+  #
+  # node is required by the harness itself, so there is no unavailable case to
+  # paper over: if node is missing, nothing here runs at all.
+  run "audit log tests"     node --test audit_log/export.test.mjs
   run "environment"         bash scripts/doctor.sh
   run "same everywhere"     bash scripts/same-everywhere.sh
   run "failure ledger"      bash scripts/ledger.sh

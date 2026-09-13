@@ -135,6 +135,20 @@ jobs:
       - name: Harness evals
         run: bash evals/run.sh
 
+      # The usage log must not start dirtying the tree on every turn again --
+      # ledger rows 6 and 25, the loop that ran for an hour at a commit a
+      # minute. This gate had no CI step either, and scripts/ci-parity.mjs is
+      # what found it.
+      - name: Usage churn
+        run: node scripts/churn-check.mjs
+
+      # audit_log's own tests. There was no step for these: the gate that ran
+      # them locally used `A && B || C` and printed ok whether or not pytest
+      # existed, so 177 lines of assertions had never executed anywhere. They
+      # run on `node --test` now, which needs nothing installed. Row 48.
+      - name: Audit log tests
+        run: node --test audit_log/export.test.mjs
+
       # evals/run.sh is what makes every other check's ledger row honest, and
       # nothing replayed it -- untested code deciding whether tested code can be
       # trusted. It cannot be an eval case: the runner refuses a CHECK that
@@ -161,6 +175,13 @@ jobs:
       # drifted to a session branch from a finished project.
       - name: CI trigger
         run: node scripts/ci-trigger.mjs
+
+      # gates.sh and this workflow are two hand-maintained lists of the same
+      # questions. A gate added to one and not the other errors nowhere: it
+      # still passes locally, and CI simply never asks. Two gates were already
+      # missing a step when this was written.
+      - name: CI parity
+        run: node scripts/ci-parity.mjs
 
       # The ledger pairs every failure this harness has had with the check that
       # now catches it. It is only worth having if the checks are real, so this
