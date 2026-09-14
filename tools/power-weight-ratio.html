@@ -1,0 +1,624 @@
+<title>パワーウェイトレシオ計算尺</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+JP:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F3F2EE;
+    --surface: #FBFAF7;
+    --ink: #12333B;
+    --ink-soft: #56676C;
+    --ink-faint: #8A9699;
+    --rule: #DCD8CF;
+    --rule-strong: #C3BDB1;
+    --accent: #B06714;
+    --accent-soft: rgba(176, 103, 20, 0.12);
+    --band-1: #8FA3AD;
+    --band-2: #94A57F;
+    --band-3: #C0992F;
+    --band-4: #C1741A;
+    --band-5: #A33C1E;
+    --focus: #1D6B7E;
+
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "IBM Plex Sans JP", -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0D1518;
+      --surface: #141F23;
+      --ink: #E6EDEC;
+      --ink-soft: #98ABAD;
+      --ink-faint: #6A7C80;
+      --rule: #24343A;
+      --rule-strong: #35484F;
+      --accent: #E4A24A;
+      --accent-soft: rgba(228, 162, 74, 0.14);
+      --band-1: #7E949E;
+      --band-2: #91A47C;
+      --band-3: #D2AC42;
+      --band-4: #DE9138;
+      --band-5: #C2512B;
+      --focus: #5FB6CE;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0D1518;
+    --surface: #141F23;
+    --ink: #E6EDEC;
+    --ink-soft: #98ABAD;
+    --ink-faint: #6A7C80;
+    --rule: #24343A;
+    --rule-strong: #35484F;
+    --accent: #E4A24A;
+    --accent-soft: rgba(228, 162, 74, 0.14);
+    --band-1: #7E949E;
+    --band-2: #91A47C;
+    --band-3: #D2AC42;
+    --band-4: #DE9138;
+    --band-5: #C2512B;
+    --focus: #5FB6CE;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.7;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .wrap {
+    max-width: 560px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 32px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 34px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 10px;
+  }
+
+  h1 {
+    font-size: 27px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    text-wrap: balance;
+    margin: 0 0 8px;
+  }
+
+  .lede {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 14px;
+    max-width: 34em;
+  }
+
+  /* ---- 入力 ---- */
+
+  .panel {
+    background: var(--surface);
+    border-top: 2px solid var(--ink);
+    border-bottom: 1px solid var(--rule);
+    padding: 20px 18px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .field { display: flex; flex-direction: column; gap: 8px; }
+
+  .field > label,
+  .field > .field-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .entry { display: flex; gap: 10px; align-items: stretch; }
+
+  input[type="number"],
+  select {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--ink);
+    background: transparent;
+    border: 0;
+    border-bottom: 1.5px solid var(--rule-strong);
+    border-radius: 0;
+    padding: 6px 2px;
+    min-width: 0;
+    flex: 1 1 auto;
+    min-height: 46px;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  select {
+    font-size: 17px;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: right 12px center, right 6px center;
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+    padding-right: 26px;
+  }
+
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type="number"] { -moz-appearance: textfield; }
+
+  input[type="number"]:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+
+  .suffix {
+    align-self: flex-end;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink-faint);
+    padding-bottom: 12px;
+  }
+
+  .segmented {
+    display: flex;
+    border: 1.5px solid var(--rule-strong);
+    align-self: stretch;
+    flex: 0 0 auto;
+  }
+
+  .segmented input { position: absolute; opacity: 0; pointer-events: none; }
+
+  .segmented label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 58px;
+    min-height: 46px;
+    padding: 0 6px;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: background 0.14s ease, color 0.14s ease;
+  }
+
+  .segmented label + input + label { border-left: 1.5px solid var(--rule-strong); }
+  .segmented input:checked + label { background: var(--ink); color: var(--surface); }
+  .segmented input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  .hint {
+    font-size: 12px;
+    color: var(--ink-faint);
+    margin: 0;
+  }
+
+  /* ---- ゲージ ---- */
+
+  .gauge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .gauge svg { width: 100%; max-width: 380px; height: auto; display: block; }
+
+  .readout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .readout .line {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .readout .value {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 46px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+  }
+
+  .readout .unit {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+  }
+
+  .chip {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 3px 11px;
+    border: 1px solid currentColor;
+    color: var(--accent);
+    border-radius: 999px;
+    line-height: 1.5;
+  }
+
+  .needle {
+    transform-box: view-box;
+    transform-origin: 160px 172px;
+    transition: transform 0.55s cubic-bezier(0.3, 1.4, 0.5, 1);
+  }
+
+  .band { transition: opacity 0.25s ease; opacity: 0.32; }
+  .band.on { opacity: 1; }
+
+  .tick-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    fill: var(--ink-faint);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .needle, .band { transition: none; }
+  }
+
+  /* ---- 換算台帳 ---- */
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .ledger { display: flex; flex-direction: column; }
+
+  .row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px dotted var(--rule);
+  }
+
+  .row .k { font-size: 14px; color: var(--ink-soft); }
+  .row .k small { display: block; font-size: 11px; color: var(--ink-faint); line-height: 1.4; }
+
+  .row .v {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 17px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .row .v em {
+    font-style: normal;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--ink-faint);
+    margin-left: 4px;
+  }
+
+  .row.primary .v { color: var(--accent); font-size: 19px; font-weight: 600; }
+
+  /* ---- 凡例 ---- */
+
+  .scale { display: flex; flex-direction: column; }
+
+  .scale-row {
+    display: grid;
+    grid-template-columns: 4px 5.6em 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dotted var(--rule);
+    transition: opacity 0.2s ease;
+    opacity: 0.55;
+  }
+
+  .scale-row.on { opacity: 1; }
+  .scale-row.on .label { font-weight: 600; }
+
+  .swatch { align-self: stretch; background: var(--sw); }
+
+  .scale-row .range {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+
+  .scale-row .label { font-size: 13px; }
+
+  footer { display: flex; flex-direction: column; gap: 10px; }
+
+  footer p { margin: 0; font-size: 12.5px; color: var(--ink-soft); }
+  footer code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--accent-soft);
+    padding: 1px 5px;
+  }
+
+  @media (max-width: 400px) {
+    .entry { flex-wrap: wrap; }
+    .segmented { flex: 1 0 100%; }
+    .readout .value { font-size: 40px; }
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Power &divide; Weight</p>
+    <h1>パワーウェイトレシオ計算尺</h1>
+    <p class="lede">最高出力（PS でも kW でも）と車両重量 kg を入れると、1馬力が何 kg を引くかを計算します。値は入力と同時に更新されます。</p>
+  </header>
+
+  <section class="panel" aria-label="入力">
+    <div class="field">
+      <label for="power">最高出力</label>
+      <div class="entry">
+        <input id="power" type="number" inputmode="decimal" min="0" step="0.1" value="180" autocomplete="off">
+        <div class="segmented" role="group" aria-label="出力の単位">
+          <input type="radio" id="unit-ps" name="unit" value="ps" checked>
+          <label for="unit-ps">PS</label>
+          <input type="radio" id="unit-kw" name="unit" value="kw">
+          <label for="unit-kw">kW</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="weight">車両重量</label>
+      <div class="entry">
+        <input id="weight" type="number" inputmode="decimal" min="0" step="1" value="1420" autocomplete="off">
+        <span class="suffix">kg</span>
+      </div>
+      <p class="hint">車検証の「車両重量」。燃料・オイル・冷却水は入り、乗員と積載物は入りません。</p>
+    </div>
+
+    <div class="field">
+      <label for="occupants">乗員</label>
+      <div class="entry">
+        <select id="occupants">
+          <option value="0">加算しない（車両重量のまま）</option>
+          <option value="1" selected>1名（ドライバーのみ）</option>
+          <option value="2">2名</option>
+          <option value="3">3名</option>
+          <option value="4">4名</option>
+          <option value="5">5名</option>
+        </select>
+      </div>
+      <p class="hint">車検証と同じく1名 55 kg で加算します。</p>
+    </div>
+  </section>
+
+  <section class="gauge" aria-label="パワーウェイトレシオ">
+    <svg viewBox="0 0 320 188" role="img" aria-hidden="true">
+      <g id="bands" fill="none" stroke-linecap="butt"></g>
+      <g id="ticks" stroke="currentColor" stroke-width="1"></g>
+      <g id="tick-labels"></g>
+      <g class="needle" id="needle">
+        <polygon points="50,172 160,167.5 160,176.5" fill="var(--ink)"></polygon>
+      </g>
+      <circle cx="160" cy="172" r="7" fill="var(--ink)"></circle>
+      <circle cx="160" cy="172" r="2.6" fill="var(--surface)"></circle>
+    </svg>
+    <div class="readout" aria-live="polite">
+      <span class="line">
+        <span class="value" id="ratio">8.19</span>
+        <span class="unit">kg &#47; PS</span>
+      </span>
+      <span class="chip" id="verdict">スポーティ</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>換算</h2>
+    <div class="ledger">
+      <div class="row primary">
+        <span class="k">パワーウェイトレシオ<small>小さいほど加速が鋭い</small></span>
+        <span class="v"><span id="v-kgps">8.19</span><em>kg/PS</em></span>
+      </div>
+      <div class="row">
+        <span class="k">重量出力比</span>
+        <span class="v"><span id="v-pst">122.0</span><em>PS/t</em></span>
+      </div>
+      <div class="row">
+        <span class="k">kW あたりの重量</span>
+        <span class="v"><span id="v-kgkw">11.14</span><em>kg/kW</em></span>
+      </div>
+      <div class="row">
+        <span class="k">比出力<small>kW/t と W/kg は同じ数値</small></span>
+        <span class="v"><span id="v-kwt">89.8</span><em>kW/t &#61; W/kg</em></span>
+      </div>
+      <div class="row">
+        <span class="k">出力</span>
+        <span class="v"><span id="v-power">180 PS &#47; 132.4 kW</span></span>
+      </div>
+      <div class="row">
+        <span class="k">計算に使った重量<small id="v-mass-note">車両 1,420 ＋ 乗員 1名</small></span>
+        <span class="v"><span id="v-mass">1,475</span><em>kg</em></span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>目安</h2>
+    <div class="scale" id="scale">
+      <div class="scale-row" data-band="0" style="--sw: var(--band-1)">
+        <span class="swatch"></span><span class="range">20 〜</span><span class="label">実用重視</span>
+      </div>
+      <div class="scale-row" data-band="1" style="--sw: var(--band-2)">
+        <span class="swatch"></span><span class="range">13 – 20</span><span class="label">標準的な乗用車</span>
+      </div>
+      <div class="scale-row" data-band="2" style="--sw: var(--band-3)">
+        <span class="swatch"></span><span class="range">8 – 13</span><span class="label">スポーティ</span>
+      </div>
+      <div class="scale-row" data-band="3" style="--sw: var(--band-4)">
+        <span class="swatch"></span><span class="range">5 – 8</span><span class="label">本格スポーツ</span>
+      </div>
+      <div class="scale-row" data-band="4" style="--sw: var(--band-5)">
+        <span class="swatch"></span><span class="range">〜 5</span><span class="label">スーパーカー領域</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>換算は <code>1 PS = 0.73549875 kW</code>（メートル法馬力）。カタログの hp が SAE ネット表記なら約 1.4% ずれます。</p>
+    <p>初期値は例（180 PS / 1420 kg）です。上の数字を書き換えて使ってください。</p>
+    <p>iPhone では Safari でこのページを開き、共有ボタンから「ホーム画面に追加」するとアプリのように起動できます。</p>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var PS_TO_KW = 0.73549875;
+    var CX = 160, CY = 172, R = 128, SW = 18;
+    var HI = 30, LO = 2;                       // ゲージの左端と右端（kg/PS）
+    var EDGES = [30, 20, 13, 8, 5, 2];         // バンド境界
+    var BAND_VARS = ["--band-1", "--band-2", "--band-3", "--band-4", "--band-5"];
+    var TICKS = [30, 20, 15, 10, 7, 5, 3, 2];
+
+    var lnHi = Math.log(HI), span = lnHi - Math.log(LO);
+
+    function t(v) {                            // 0 = 左端(遅い) … 1 = 右端(速い)
+      var x = (lnHi - Math.log(v)) / span;
+      return x < 0 ? 0 : x > 1 ? 1 : x;
+    }
+    function angle(v) { return 180 - 180 * t(v); }
+    function pt(deg, r) {
+      var a = deg * Math.PI / 180;
+      return [CX + r * Math.cos(a), CY - r * Math.sin(a)];
+    }
+    function ns(name) { return document.createElementNS("http://www.w3.org/2000/svg", name); }
+
+    var bands = document.getElementById("bands");
+    for (var i = 0; i < EDGES.length - 1; i++) {
+      var a = pt(angle(EDGES[i]), R), b = pt(angle(EDGES[i + 1]), R);
+      var path = ns("path");
+      path.setAttribute("d", "M " + a[0].toFixed(2) + " " + a[1].toFixed(2) +
+                             " A " + R + " " + R + " 0 0 1 " + b[0].toFixed(2) + " " + b[1].toFixed(2));
+      path.setAttribute("stroke", "var(" + BAND_VARS[i] + ")");
+      path.setAttribute("stroke-width", SW);
+      path.setAttribute("class", "band");
+      path.setAttribute("data-band", String(i));
+      bands.appendChild(path);
+    }
+
+    var ticks = document.getElementById("ticks");
+    var labels = document.getElementById("tick-labels");
+    TICKS.forEach(function (v) {
+      var deg = angle(v);
+      var p1 = pt(deg, R - SW / 2 - 3), p2 = pt(deg, R - SW / 2 - 10);
+      var line = ns("line");
+      line.setAttribute("x1", p1[0].toFixed(2)); line.setAttribute("y1", p1[1].toFixed(2));
+      line.setAttribute("x2", p2[0].toFixed(2)); line.setAttribute("y2", p2[1].toFixed(2));
+      line.setAttribute("stroke", "var(--ink-faint)");
+      ticks.appendChild(line);
+
+      var p3 = pt(deg, R - SW / 2 - 23);
+      var text = ns("text");
+      text.setAttribute("x", p3[0].toFixed(2));
+      text.setAttribute("y", (p3[1] + 3.5).toFixed(2));
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("class", "tick-label");
+      text.textContent = String(v);
+      labels.appendChild(text);
+    });
+
+    var bandEls = Array.prototype.slice.call(bands.children);
+    var scaleEls = Array.prototype.slice.call(document.querySelectorAll(".scale-row"));
+    var needle = document.getElementById("needle");
+    var powerEl = document.getElementById("power");
+    var weightEl = document.getElementById("weight");
+    var occEl = document.getElementById("occupants");
+    var unitEls = Array.prototype.slice.call(document.querySelectorAll('input[name="unit"]'));
+    var VERDICTS = ["実用重視", "標準的な乗用車", "スポーティ", "本格スポーツ", "スーパーカー領域"];
+
+    function bandOf(v) {
+      for (var i = 1; i < EDGES.length - 1; i++) if (v >= EDGES[i]) return i - 1;
+      return EDGES.length - 2;
+    }
+    function fmt(n, d) {
+      return n.toLocaleString("ja-JP", { minimumFractionDigits: d, maximumFractionDigits: d });
+    }
+    function set(id, text) { document.getElementById(id).textContent = text; }
+
+    function update() {
+      var raw = parseFloat(powerEl.value);
+      var kerb = parseFloat(weightEl.value);
+      var occ = parseInt(occEl.value, 10) || 0;
+      var isPs = document.getElementById("unit-ps").checked;
+
+      var ps = isPs ? raw : raw / PS_TO_KW;
+      var kw = isPs ? raw * PS_TO_KW : raw;
+      var mass = (isFinite(kerb) ? kerb : NaN) + occ * 55;
+      var ok = isFinite(ps) && ps > 0 && isFinite(mass) && mass > 0;
+
+      if (!ok) {
+        set("ratio", "—");
+        document.getElementById("verdict").textContent = "出力と重量を入力";
+        ["v-kgps", "v-pst", "v-kgkw", "v-kwt", "v-power", "v-mass"].forEach(function (id) { set(id, "—"); });
+        set("v-mass-note", "");
+        needle.style.transform = "rotate(0deg)";
+        bandEls.forEach(function (el) { el.classList.remove("on"); });
+        scaleEls.forEach(function (el) { el.classList.remove("on"); });
+        return;
+      }
+
+      var kgps = mass / ps;
+      var band = bandOf(kgps);
+
+      set("ratio", fmt(kgps, 2));
+      set("v-kgps", fmt(kgps, 2));
+      set("v-pst", fmt(ps / (mass / 1000), 1));
+      set("v-kgkw", fmt(mass / kw, 2));
+      set("v-kwt", fmt(kw / (mass / 1000), 1));
+      set("v-power", fmt(ps, 1) + " PS / " + fmt(kw, 1) + " kW");
+      set("v-mass", fmt(mass, 0));
+      set("v-mass-note", occ ? "車両 " + fmt(mass - occ * 55, 0) + " ＋ 乗員 " + occ + "名（" + occ * 55 + " kg）" : "車両重量のまま");
+      document.getElementById("verdict").textContent = VERDICTS[band];
+
+      needle.style.transform = "rotate(" + (180 - angle(kgps)).toFixed(2) + "deg)";
+      bandEls.forEach(function (el, i) { el.classList.toggle("on", i === band); });
+      scaleEls.forEach(function (el, i) { el.classList.toggle("on", i === band); });
+    }
+
+    [powerEl, weightEl, occEl].concat(unitEls).forEach(function (el) {
+      el.addEventListener("input", update);
+      el.addEventListener("change", update);
+    });
+    update();
+  })();
+</script>
